@@ -395,6 +395,30 @@ button {
   pointer-events: none;
 }
 
+.grid-object-debug-footprint {
+  position: absolute;
+  border: 1px dashed rgba(37, 99, 235, 0.75);
+  pointer-events: none;
+}
+
+.grid-object-debug-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  margin-top: -4px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.grid-object-debug-dot.is-center {
+  background: #dc2626;
+}
+
+.grid-object-debug-dot.is-anchor {
+  background: #2563eb;
+}
+
 .grid-object-shadow {
   position: absolute;
   border-radius: 999px;

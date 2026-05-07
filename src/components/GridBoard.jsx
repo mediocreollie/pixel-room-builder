@@ -2,6 +2,7 @@ const TILE_WIDTH = 64;
 const TILE_HEIGHT = 32;
 const PADDING = 36;
 const FLOOR_TOP = PADDING + 36;
+const DEBUG_OBJECT_ANCHORS = false;
 
 function getIsoPoint(col, row, originX) {
   return {
@@ -52,6 +53,7 @@ function getFootprintMetrics(index, item, gridSize, originX) {
     centerX: (minX + maxX) / 2,
     centerY: (minY + maxY) / 2,
     floorY: maxY,
+    surfaceY: (minY + maxY) / 2 + TILE_HEIGHT / 2,
   };
 }
 
@@ -74,6 +76,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const imageWidth = footprint.width * scaleX + 12;
   const imageHeight = (footprint.height + lift) * scaleY;
   const shadowWidth = footprint.width * 0.76 * shadowScale;
+  const anchorY = footprint.surfaceY;
 
   return {
     container: {
@@ -84,16 +87,32 @@ function getObjectOverlay(placedObject, gridSize, originX) {
     },
     image: {
       left: footprint.centerX + offsetX,
-      top: footprint.floorY - lift + offsetY,
+      top: anchorY - lift + offsetY,
       width: imageWidth,
       height: imageHeight,
       transform: "translate(-50%, -100%)",
     },
     shadow: {
       left: footprint.centerX - shadowWidth / 2 + offsetX,
-      top: footprint.floorY - footprint.height * 0.32,
+      top: anchorY - TILE_HEIGHT * 0.28,
       width: shadowWidth,
       height: Math.max(10, footprint.height * 0.55),
+    },
+    debug: {
+      center: {
+        left: footprint.centerX,
+        top: footprint.centerY,
+      },
+      anchor: {
+        left: footprint.centerX,
+        top: anchorY,
+      },
+      footprint: {
+        left: footprint.minX,
+        top: footprint.minY,
+        width: footprint.width,
+        height: footprint.height,
+      },
     },
   };
 }
@@ -131,6 +150,14 @@ function IsoTileLayer({
 function FurnitureSprite({ placedObject, overlayStyle }) {
   return (
     <div className="grid-object" style={overlayStyle.container}>
+      {DEBUG_OBJECT_ANCHORS ? (
+        <>
+          <div className="grid-object-debug-footprint" style={overlayStyle.debug.footprint} />
+          <div className="grid-object-debug-dot is-center" style={overlayStyle.debug.center} />
+          <div className="grid-object-debug-dot is-anchor" style={overlayStyle.debug.anchor} />
+        </>
+      ) : null}
+
       <div className="grid-object-shadow" style={overlayStyle.shadow} />
       <img
         className="grid-object-image"
