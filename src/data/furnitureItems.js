@@ -54,19 +54,19 @@ const furnitureItems = {
     image: sofaImage,
     render: {
       scale: {
-        x: 1.06,
-        y: 0.58,
+        x: 1.04,
+        y: 0.62,
       },
       offset: {
         x: 0,
-        y: 18,
+        y: 4,
       },
       shadow: {
         scale: 0.92,
       },
       lift: {
-        scale: 0.18,
-        offset: -10,
+        scale: 0.16,
+        offset: -4,
       },
     },
   },

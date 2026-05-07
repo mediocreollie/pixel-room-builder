@@ -26,13 +26,7 @@ function getTileStyle(index, gridSize, originX, findObjectAtTile, previewTiles) 
   };
 }
 
-function getObjectOverlay(placedObject, gridSize, originX) {
-  const { index, item } = placedObject;
-  const render = item.render || {};
-  const scale = render.scale || {};
-  const offset = render.offset || {};
-  const shadow = render.shadow || {};
-  const liftConfig = render.lift || {};
+function getFootprintMetrics(index, item, gridSize, originX) {
   const row = Math.floor(index / gridSize);
   const col = index % gridSize;
   const corners = [
@@ -47,37 +41,59 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-  const footprintWidth = maxX - minX;
-  const footprintHeight = maxY - minY;
+
+  return {
+    minX,
+    maxX,
+    minY,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+    floorY: maxY,
+  };
+}
+
+function getObjectOverlay(placedObject, gridSize, originX) {
+  const { index, item } = placedObject;
+  const render = item.render || {};
+  const scale = render.scale || {};
+  const offset = render.offset || {};
+  const shadow = render.shadow || {};
+  const liftConfig = render.lift || {};
+  const footprint = getFootprintMetrics(index, item, gridSize, originX);
   const liftScale = liftConfig.scale || 1;
   const liftOffset = liftConfig.offset || 0;
-  const lift = Math.max(16, footprintHeight * 0.7 * liftScale) + liftOffset;
+  const lift = Math.max(16, footprint.height * 0.7 * liftScale) + liftOffset;
   const scaleX = scale.x || 1;
   const scaleY = scale.y || 1;
   const offsetX = offset.x || 0;
   const offsetY = offset.y || 0;
   const shadowScale = shadow.scale || 1;
-  const imageWidth = footprintWidth * scaleX + 12;
-  const imageHeight = (footprintHeight + lift) * scaleY;
+  const imageWidth = footprint.width * scaleX + 12;
+  const imageHeight = (footprint.height + lift) * scaleY;
+  const shadowWidth = footprint.width * 0.76 * shadowScale;
 
   return {
     container: {
-      left: minX - 6,
-      top: minY - lift,
-      width: footprintWidth + 12,
-      height: footprintHeight + lift + 6,
+      left: 0,
+      top: 0,
+      width: "100%",
+      height: "100%",
     },
     image: {
-      left: (footprintWidth + 12 - imageWidth) / 2 + offsetX,
-      top: lift + footprintHeight - imageHeight + offsetY,
+      left: footprint.centerX + offsetX,
+      top: footprint.floorY - lift + offsetY,
       width: imageWidth,
       height: imageHeight,
+      transform: "translate(-50%, -100%)",
     },
     shadow: {
-      left: footprintWidth * (0.5 - 0.38 * shadowScale),
-      top: lift + footprintHeight * 0.18,
-      width: footprintWidth * 0.76 * shadowScale,
-      height: Math.max(10, footprintHeight * 0.55),
+      left: footprint.centerX - shadowWidth / 2 + offsetX,
+      top: footprint.floorY - footprint.height * 0.32,
+      width: shadowWidth,
+      height: Math.max(10, footprint.height * 0.55),
     },
   };
 }
