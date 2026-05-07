@@ -11,11 +11,17 @@ const furnitureItems = {
     color: "#22c55e",
     image: chairImage,
     render: {
-      scaleX: 0.72,
-      scaleY: 1.05,
-      offsetX: 0,
-      offsetY: -4,
-      shadowScale: 0.7,
+      scale: {
+        x: 0.72,
+        y: 1.05,
+      },
+      offset: {
+        x: 0,
+        y: -4,
+      },
+      shadow: {
+        scale: 0.7,
+      },
     },
   },
   table: {
@@ -26,11 +32,17 @@ const furnitureItems = {
     color: "#c084fc",
     image: coffeeTableImage,
     render: {
-      scaleX: 0.92,
-      scaleY: 0.82,
-      offsetX: 0,
-      offsetY: 2,
-      shadowScale: 0.86,
+      scale: {
+        x: 0.92,
+        y: 0.82,
+      },
+      offset: {
+        x: 0,
+        y: 2,
+      },
+      shadow: {
+        scale: 0.86,
+      },
     },
   },
   sofa: {
@@ -41,13 +53,21 @@ const furnitureItems = {
     color: "#f97316",
     image: sofaImage,
     render: {
-      scaleX: 1.08,
-      scaleY: 0.68,
-      offsetX: 0,
-      offsetY: 10,
-      shadowScale: 0.96,
-      liftScale: 0.45,
-      liftOffset: -6,
+      scale: {
+        x: 1.06,
+        y: 0.58,
+      },
+      offset: {
+        x: 0,
+        y: 18,
+      },
+      shadow: {
+        scale: 0.92,
+      },
+      lift: {
+        scale: 0.18,
+        offset: -10,
+      },
     },
   },
 };

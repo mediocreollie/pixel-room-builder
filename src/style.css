@@ -392,6 +392,7 @@ button {
 .grid-object {
   position: absolute;
   overflow: visible;
+  pointer-events: none;
 }
 
 .grid-object-shadow {
@@ -399,6 +400,7 @@ button {
   border-radius: 999px;
   background: rgba(54, 39, 24, 0.22);
   filter: blur(6px);
+  pointer-events: none;
 }
 
 .grid-object-image {
@@ -407,6 +409,7 @@ button {
   filter: drop-shadow(0 8px 10px rgba(42, 28, 14, 0.18));
   object-fit: contain;
   object-position: center bottom;
+  pointer-events: none;
 }
 
 @media (max-width: 640px) {

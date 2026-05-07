@@ -1,11 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 120">
-  <ellipse cx="110" cy="90" rx="52" ry="10" fill="#000" opacity=".1" />
-  <polygon points="110,34 172,65 110,96 48,65" fill="#f09a58" />
-  <polygon points="48,65 110,96 110,108 48,77" fill="#cc6b32" />
-  <polygon points="172,65 110,96 110,108 172,77" fill="#dc7b3f" />
-  <polygon points="70,46 92,57 70,68 48,57" fill="#f4b07a" />
-  <polygon points="150,46 172,57 150,68 128,57" fill="#f4b07a" />
-  <polygon points="110,30 136,43 110,56 84,43" fill="#f4b07a" />
-  <rect x="56" y="76" width="10" height="12" rx="5" fill="#6f503b" />
-  <rect x="154" y="76" width="10" height="12" rx="5" fill="#6f503b" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 140">
+  <ellipse cx="180" cy="112" rx="96" ry="10" fill="#000" opacity=".08" />
+
+  <polygon points="180,54 284,106 180,138 76,106" fill="#d47338" />
+  <polygon points="76,106 180,138 180,140 76,108" fill="#b85d2a" />
+  <polygon points="284,106 180,138 180,140 284,108" fill="#c96831" />
+
+  <polygon points="180,32 252,68 180,90 108,54" fill="#e8975e" />
+  <polygon points="108,54 180,90 180,108 108,72" fill="#c86d38" />
+  <polygon points="252,68 180,90 180,108 252,86" fill="#db824a" />
+
+  <polygon points="102,28 138,46 102,58 66,40" fill="#f2bb8e" />
+  <polygon points="66,40 102,58 102,96 66,78" fill="#d6824a" />
+  <polygon points="138,46 102,58 102,96 138,78" fill="#e89a63" />
+
+  <polygon points="258,34 294,52 258,64 222,46" fill="#f2bb8e" />
+  <polygon points="222,46 258,64 258,102 222,84" fill="#d6824a" />
+  <polygon points="294,52 258,64 258,102 294,84" fill="#e89a63" />
+
+  <polygon points="180,14 266,57 180,84 94,41" fill="#f4c8a3" />
+  <polygon points="94,41 180,84 180,100 94,57" fill="#bc6432" />
+  <polygon points="266,57 180,84 180,100 266,73" fill="#cf7842" />
+
+  <polygon points="180,46 236,74 180,92 124,64" fill="#f9dcc0" opacity=".9" />
 </svg>
