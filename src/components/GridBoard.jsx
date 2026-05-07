@@ -42,6 +42,25 @@ function getFootprintMetrics(index, item, gridSize, originX) {
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
+  const tileCenters = [];
+
+  for (let y = 0; y < item.height; y += 1) {
+    for (let x = 0; x < item.width; x += 1) {
+      const point = getIsoPoint(col + x, row + y, originX);
+
+      tileCenters.push({
+        x: point.x,
+        y: point.y + TILE_HEIGHT / 2,
+      });
+    }
+  }
+
+  const centerSurfaceX =
+    tileCenters.reduce((sum, tile) => sum + tile.x, 0) / tileCenters.length;
+  const centerSurfaceY =
+    tileCenters.reduce((sum, tile) => sum + tile.y, 0) / tileCenters.length;
+  const widthAxisSpan = item.width * (TILE_WIDTH / 2);
+  const depthAxisSpan = item.height * (TILE_WIDTH / 2);
 
   return {
     minX,
@@ -53,7 +72,10 @@ function getFootprintMetrics(index, item, gridSize, originX) {
     centerX: (minX + maxX) / 2,
     centerY: (minY + maxY) / 2,
     floorY: maxY,
-    surfaceY: (minY + maxY) / 2 + TILE_HEIGHT / 2,
+    surfaceY: centerSurfaceY,
+    surfaceX: centerSurfaceX,
+    widthAxisSpan,
+    depthAxisSpan,
   };
 }
 
@@ -73,9 +95,11 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const offsetX = offset.x || 0;
   const offsetY = offset.y || 0;
   const shadowScale = shadow.scale || 1;
-  const imageWidth = footprint.width * scaleX + 12;
+  const widthBias = Math.max(0, footprint.widthAxisSpan - footprint.depthAxisSpan);
+  const imageWidth = (footprint.width + widthBias) * scaleX + 12;
   const imageHeight = (footprint.height + lift) * scaleY;
   const shadowWidth = footprint.width * 0.76 * shadowScale;
+  const anchorX = footprint.surfaceX;
   const anchorY = footprint.surfaceY;
 
   return {
@@ -86,25 +110,25 @@ function getObjectOverlay(placedObject, gridSize, originX) {
       height: "100%",
     },
     image: {
-      left: footprint.centerX + offsetX,
+      left: anchorX + offsetX,
       top: anchorY - lift + offsetY,
       width: imageWidth,
       height: imageHeight,
       transform: "translate(-50%, -100%)",
     },
     shadow: {
-      left: footprint.centerX - shadowWidth / 2 + offsetX,
+      left: anchorX - shadowWidth / 2 + offsetX,
       top: anchorY - TILE_HEIGHT * 0.28,
       width: shadowWidth,
       height: Math.max(10, footprint.height * 0.55),
     },
     debug: {
       center: {
-        left: footprint.centerX,
-        top: footprint.centerY,
+        left: footprint.surfaceX,
+        top: footprint.surfaceY,
       },
       anchor: {
-        left: footprint.centerX,
+        left: anchorX,
         top: anchorY,
       },
       footprint: {
