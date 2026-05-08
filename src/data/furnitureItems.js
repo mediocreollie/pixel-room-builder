@@ -59,14 +59,14 @@ const furnitureItems = {
       },
       offset: {
         x: 0,
-        y: 4,
+        y: 10,
       },
       shadow: {
         scale: 0.92,
       },
       lift: {
         scale: 0.16,
-        offset: -4,
+        offset: 0,
       },
     },
   },
