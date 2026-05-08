@@ -11,6 +11,46 @@ export function isRealGenerationEnabled() {
   return REAL_GENERATION_ENABLED;
 }
 
+function buildGeneratedItemFromMetadata({ payload, itemId, itemNumber }) {
+  const diagnosis = payload?.diagnosis || {};
+  const footprint = diagnosis.footprint || {};
+  const render = {};
+
+  if (diagnosis.anchor === "surface-center") {
+    render.anchor = "surface-center";
+  } else if (diagnosis.anchor === "sprite-floor") {
+    render.anchor = "sprite-floor";
+  }
+
+  const nextItem = {
+    id: payload?.item?.id || itemId,
+    name:
+      typeof diagnosis.displayName === "string" && diagnosis.displayName.trim()
+        ? diagnosis.displayName.trim()
+        : "Generated Item",
+    width:
+      Number.isInteger(footprint.width) && footprint.width > 0
+        ? footprint.width
+        : 1,
+    height:
+      Number.isInteger(footprint.height) && footprint.height > 0
+        ? footprint.height
+        : 1,
+    color: payload?.item?.color || "#38bdf8",
+    image: payload?.item?.image,
+  };
+
+  if (Object.keys(render).length > 0) {
+    nextItem.render = render;
+  }
+
+  if (!nextItem.name || nextItem.name === "Generated Item") {
+    nextItem.name = `Generated Item ${itemNumber}`;
+  }
+
+  return nextItem;
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -70,5 +110,9 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
     throw new Error("Generation response did not include an item image.");
   }
 
-  return payload.item;
+  return buildGeneratedItemFromMetadata({
+    payload,
+    itemId,
+    itemNumber,
+  });
 }
