@@ -44,6 +44,111 @@ function getTileInfo(tileIndex, gridSize, originX) {
   };
 }
 
+function getPerimeterPolygon(occupiedTiles) {
+  const edgeMap = new Map();
+
+  function getTilePolygon(tile) {
+    return [
+      { x: tile.x, y: tile.y },
+      { x: tile.x + TILE_WIDTH / 2, y: tile.y + TILE_HEIGHT / 2 },
+      { x: tile.x, y: tile.y + TILE_HEIGHT },
+      { x: tile.x - TILE_WIDTH / 2, y: tile.y + TILE_HEIGHT / 2 },
+    ];
+  }
+
+  function pointKey(point) {
+    return `${point.x},${point.y}`;
+  }
+
+  function edgeKey(start, end) {
+    const a = pointKey(start);
+    const b = pointKey(end);
+
+    return a < b ? `${a}|${b}` : `${b}|${a}`;
+  }
+
+  for (const tile of occupiedTiles) {
+    const polygon = getTilePolygon(tile);
+
+    for (let index = 0; index < polygon.length; index += 1) {
+      const start = polygon[index];
+      const end = polygon[(index + 1) % polygon.length];
+      const key = edgeKey(start, end);
+
+      if (edgeMap.has(key)) {
+        edgeMap.delete(key);
+      } else {
+        edgeMap.set(key, { start, end });
+      }
+    }
+  }
+
+  const perimeterEdges = Array.from(edgeMap.values());
+
+  if (perimeterEdges.length === 0) {
+    return [];
+  }
+
+  const adjacency = new Map();
+
+  function addAdjacency(point, neighbor) {
+    const key = pointKey(point);
+    const neighbors = adjacency.get(key) || [];
+    neighbors.push(neighbor);
+    adjacency.set(key, neighbors);
+  }
+
+  for (const edge of perimeterEdges) {
+    addAdjacency(edge.start, edge.end);
+    addAdjacency(edge.end, edge.start);
+  }
+
+  let startPoint = perimeterEdges[0].start;
+
+  for (const edge of perimeterEdges) {
+    if (
+      edge.start.y < startPoint.y ||
+      (edge.start.y === startPoint.y && edge.start.x < startPoint.x)
+    ) {
+      startPoint = edge.start;
+    }
+    if (
+      edge.end.y < startPoint.y ||
+      (edge.end.y === startPoint.y && edge.end.x < startPoint.x)
+    ) {
+      startPoint = edge.end;
+    }
+  }
+
+  const polygon = [startPoint];
+  let currentPoint = startPoint;
+  let previousPoint = null;
+
+  while (true) {
+    const currentNeighbors = adjacency.get(pointKey(currentPoint)) || [];
+    const nextPoint = currentNeighbors.find(
+      (neighbor) =>
+        !previousPoint ||
+        neighbor.x !== previousPoint.x ||
+        neighbor.y !== previousPoint.y
+    );
+
+    if (!nextPoint) {
+      break;
+    }
+
+    if (nextPoint.x === startPoint.x && nextPoint.y === startPoint.y) {
+      break;
+    }
+
+    polygon.push(nextPoint);
+    previousPoint = currentPoint;
+    currentPoint = nextPoint;
+  }
+
+  return polygon;
+}
+
 function getFootprintMetrics(index, item, gridSize, originX) {
   const startTile = getTileInfo(index, gridSize, originX);
   const row = startTile.row;
@@ -91,6 +196,7 @@ function getFootprintMetrics(index, item, gridSize, originX) {
     widthAxisSpan,
     depthAxisSpan,
     occupiedTiles,
+    polygon: getPerimeterPolygon(occupiedTiles),
     startTile,
   };
 }
@@ -146,6 +252,9 @@ function getObjectOverlay(placedObject, gridSize, originX) {
       ? "translate(-50%, -50%)"
       : "translate(-50%, -100%)";
   const imageObjectPosition = isSurfaceCentered ? "center center" : "center bottom";
+  const imageClipPath = isSurfaceCentered
+    ? `polygon(${footprint.polygon.map((point) => `${point.x}px ${point.y}px`).join(", ")})`
+    : undefined;
 
   if (DEBUG_RENDER_AUDIT) {
     console.log("[render-audit]", {
@@ -189,6 +298,13 @@ function getObjectOverlay(placedObject, gridSize, originX) {
       top: 0,
       width: "100%",
       height: "100%",
+    },
+    spriteMask: {
+      left: 0,
+      top: 0,
+      width: "100%",
+      height: "100%",
+      clipPath: imageClipPath,
     },
     image: {
       left: anchorX + offsetX,
@@ -316,12 +432,14 @@ function FurnitureSprite({ placedObject, overlayStyle }) {
       ) : isDiagnosticRect ? (
         <div className="grid-object-diagnostic-rect" style={overlayStyle.image} />
       ) : (
-        <img
-          className="grid-object-image"
-          src={placedObject.item.image}
-          alt={placedObject.item.name}
-          style={overlayStyle.image}
-        />
+        <div className="grid-object-sprite-mask" style={overlayStyle.spriteMask}>
+          <img
+            className="grid-object-image"
+            src={placedObject.item.image}
+            alt={placedObject.item.name}
+            style={overlayStyle.image}
+          />
+        </div>
       )}
     </div>
   );
