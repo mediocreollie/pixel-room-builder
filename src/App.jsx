@@ -5,6 +5,11 @@ import Toolbar from "./components/Toolbar";
 import UploadPanel from "./components/UploadPanel";
 import initialItems from "./data/furnitureItems";
 import {
+  createFakeGeneratedItem,
+  isRealGenerationEnabled,
+  requestGeneratedItem,
+} from "./lib/generateItem";
+import {
   canPlace,
   doesOverlap,
   findObjectAtTile,
@@ -143,24 +148,42 @@ function App() {
     setSelectedFile(file);
   }
 
-  function handleCreateItem() {
+  async function handleCreateItem() {
     if (!selectedFile || isCreatingItem) return;
 
     setIsCreatingItem(true);
 
-    window.setTimeout(() => {
-      const createdItemCount = Object.keys(items).filter((itemKey) =>
-        itemKey.startsWith("uploaded-item-")
-      ).length;
-      const nextItemKey = `uploaded-item-${createdItemCount + 1}`;
-      const nextItem = {
-        id: nextItemKey,
-        name: `Uploaded Item ${createdItemCount + 1}`,
-        width: 1,
-        height: 1,
-        color: "#38bdf8",
-        image: URL.createObjectURL(selectedFile),
-      };
+    const createdItemCount = Object.keys(items).filter((itemKey) =>
+      itemKey.startsWith("uploaded-item-")
+    ).length;
+    const nextItemKey = `uploaded-item-${createdItemCount + 1}`;
+    const itemNumber = createdItemCount + 1;
+
+    try {
+      let nextItem;
+
+      if (isRealGenerationEnabled()) {
+        try {
+          nextItem = await requestGeneratedItem({
+            file: selectedFile,
+            itemId: nextItemKey,
+            itemNumber,
+          });
+        } catch (error) {
+          console.error("Falling back to fake item generation.", error);
+          nextItem = await createFakeGeneratedItem({
+            file: selectedFile,
+            itemId: nextItemKey,
+            itemNumber,
+          });
+        }
+      } else {
+        nextItem = await createFakeGeneratedItem({
+          file: selectedFile,
+          itemId: nextItemKey,
+          itemNumber,
+        });
+      }
 
       setItems((currentItems) => ({
         ...currentItems,
@@ -171,8 +194,9 @@ function App() {
       setSelectedFile(null);
       setPreviewUrl("");
       setUploadInputKey((currentKey) => currentKey + 1);
+    } finally {
       setIsCreatingItem(false);
-    }, 1200);
+    }
   }
 
   function handleTileClick(index) {
