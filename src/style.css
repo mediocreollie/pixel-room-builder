@@ -257,6 +257,76 @@ button {
   color: #7d6b56;
 }
 
+.diagnosis-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #ddd2c1;
+  border-radius: 16px;
+  background: #fffaf2;
+}
+
+.diagnosis-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.diagnosis-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.diagnosis-content {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnosis-overrides {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.diagnosis-control {
+  display: grid;
+  gap: 6px;
+}
+
+.diagnosis-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d8cfbf;
+  border-radius: 12px;
+  background: #fffdf9;
+  color: #2a241d;
+  font: inherit;
+}
+
+.diagnosis-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+
+.diagnosis-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8b6f47;
+}
+
+.diagnosis-description,
+.diagnosis-empty {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #7d6b56;
+}
+
 .inventory-panel-header {
   display: flex;
   flex-direction: column;

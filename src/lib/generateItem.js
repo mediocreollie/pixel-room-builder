@@ -76,12 +76,15 @@ export async function createFakeGeneratedItem({ file, itemId, itemNumber }) {
   await wait(1200);
 
   return {
-    id: itemId,
-    name: `Uploaded Item ${itemNumber}`,
-    width: 1,
-    height: 1,
-    color: "#38bdf8",
-    image: URL.createObjectURL(file),
+    item: {
+      id: itemId,
+      name: `Uploaded Item ${itemNumber}`,
+      width: 1,
+      height: 1,
+      color: "#38bdf8",
+      image: URL.createObjectURL(file),
+    },
+    diagnosis: null,
   };
 }
 
@@ -110,9 +113,12 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
     throw new Error("Generation response did not include an item image.");
   }
 
-  return buildGeneratedItemFromMetadata({
-    payload,
-    itemId,
-    itemNumber,
-  });
+  return {
+    item: buildGeneratedItemFromMetadata({
+      payload,
+      itemId,
+      itemNumber,
+    }),
+    diagnosis: payload?.diagnosis || null,
+  };
 }

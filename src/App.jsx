@@ -17,6 +17,40 @@ import {
 } from "./utils/grid";
 
 const PLACED_OBJECTS_STORAGE_KEY = "furniture-pixel-app-placed-objects";
+const AUTO_OVERRIDE_VALUE = "auto";
+
+function applyGeneratedOverrides(item, overrides) {
+  const nextItem = {
+    ...item,
+  };
+
+  if (overrides.footprint && overrides.footprint !== AUTO_OVERRIDE_VALUE) {
+    const [width, height] = overrides.footprint.split("x").map(Number);
+
+    if (Number.isInteger(width) && Number.isInteger(height)) {
+      nextItem.width = width;
+      nextItem.height = height;
+    }
+  }
+
+  if (overrides.anchor && overrides.anchor !== AUTO_OVERRIDE_VALUE) {
+    nextItem.render = {
+      ...(nextItem.render || {}),
+      anchor: overrides.anchor === "upright" ? "bottom-center" : overrides.anchor,
+    };
+  } else if (nextItem.render?.anchor === "bottom-center") {
+    const nextRender = { ...(nextItem.render || {}) };
+    delete nextRender.anchor;
+
+    if (Object.keys(nextRender).length > 0) {
+      nextItem.render = nextRender;
+    } else {
+      delete nextItem.render;
+    }
+  }
+
+  return nextItem;
+}
 
 function isUploadedItem(item) {
   return item.id?.startsWith("uploaded-item-");
@@ -78,6 +112,11 @@ function App() {
   const [isCreatingItem, setIsCreatingItem] = useState(false);
   const [uploadInputKey, setUploadInputKey] = useState(0);
   const [uploadMessage, setUploadMessage] = useState("");
+  const [latestDiagnosis, setLatestDiagnosis] = useState(null);
+  const [overrideFootprint, setOverrideFootprint] = useState(AUTO_OVERRIDE_VALUE);
+  const [overrideAnchor, setOverrideAnchor] = useState(AUTO_OVERRIDE_VALUE);
+  const [latestGeneratedItemKey, setLatestGeneratedItemKey] = useState("");
+  const [latestGeneratedBaseItem, setLatestGeneratedBaseItem] = useState(null);
 
   useEffect(() => {
     const savedPlacedObjects = placedObjects.filter(
@@ -150,6 +189,34 @@ function App() {
     setUploadMessage("");
   }
 
+  useEffect(() => {
+    if (!latestGeneratedItemKey || !latestGeneratedBaseItem || !latestDiagnosis?.available) {
+      return;
+    }
+
+    const overrides = {
+      footprint: overrideFootprint,
+      anchor: overrideAnchor,
+    };
+
+    setItems((currentItems) => {
+      if (!currentItems[latestGeneratedItemKey]) {
+        return currentItems;
+      }
+
+      return {
+        ...currentItems,
+        [latestGeneratedItemKey]: applyGeneratedOverrides(latestGeneratedBaseItem, overrides),
+      };
+    });
+  }, [
+    latestDiagnosis,
+    latestGeneratedBaseItem,
+    latestGeneratedItemKey,
+    overrideAnchor,
+    overrideFootprint,
+  ]);
+
   async function handleCreateItem() {
     if (!selectedFile || isCreatingItem) return;
 
@@ -163,37 +230,72 @@ function App() {
     const itemNumber = createdItemCount + 1;
 
     try {
-      let nextItem;
+      let generationResult;
 
       if (isRealGenerationEnabled()) {
         try {
-          nextItem = await requestGeneratedItem({
+          generationResult = await requestGeneratedItem({
             file: selectedFile,
             itemId: nextItemKey,
             itemNumber,
           });
           setUploadMessage("AI-generated item created.");
+          setLatestDiagnosis({
+            available: true,
+            source: "ai",
+            data: generationResult.diagnosis,
+          });
+          setOverrideFootprint(AUTO_OVERRIDE_VALUE);
+          setOverrideAnchor(AUTO_OVERRIDE_VALUE);
+          setLatestGeneratedItemKey(nextItemKey);
+          setLatestGeneratedBaseItem(generationResult.item);
         } catch (error) {
           console.error("Falling back to fake item generation.", error);
           setUploadMessage("Backend request failed. Used local fallback instead.");
-          nextItem = await createFakeGeneratedItem({
+          generationResult = await createFakeGeneratedItem({
             file: selectedFile,
             itemId: nextItemKey,
             itemNumber,
           });
+          setLatestDiagnosis({
+            available: false,
+            source: "fallback",
+            data: null,
+          });
+          setOverrideFootprint(AUTO_OVERRIDE_VALUE);
+          setOverrideAnchor(AUTO_OVERRIDE_VALUE);
+          setLatestGeneratedItemKey("");
+          setLatestGeneratedBaseItem(null);
         }
       } else {
-        nextItem = await createFakeGeneratedItem({
+        generationResult = await createFakeGeneratedItem({
           file: selectedFile,
           itemId: nextItemKey,
           itemNumber,
         });
         setUploadMessage("Local mock item created.");
+        setLatestDiagnosis({
+          available: false,
+          source: "fake",
+          data: null,
+        });
+        setOverrideFootprint(AUTO_OVERRIDE_VALUE);
+        setOverrideAnchor(AUTO_OVERRIDE_VALUE);
+        setLatestGeneratedItemKey("");
+        setLatestGeneratedBaseItem(null);
       }
+
+      const finalItem =
+        isRealGenerationEnabled() && generationResult.diagnosis
+          ? applyGeneratedOverrides(generationResult.item, {
+              footprint: overrideFootprint,
+              anchor: overrideAnchor,
+            })
+          : generationResult.item;
 
       setItems((currentItems) => ({
         ...currentItems,
-        [nextItemKey]: nextItem,
+        [nextItemKey]: finalItem,
       }));
 
       setSelectedItem(nextItemKey);
@@ -318,11 +420,16 @@ function App() {
               inputKey={uploadInputKey}
               selectedFile={selectedFile}
               previewUrl={previewUrl}
-            handleFileChange={handleFileChange}
-            handleCreateItem={handleCreateItem}
-            isCreatingItem={isCreatingItem}
-            uploadMessage={uploadMessage}
-          />
+              handleFileChange={handleFileChange}
+              handleCreateItem={handleCreateItem}
+              isCreatingItem={isCreatingItem}
+              uploadMessage={uploadMessage}
+              latestDiagnosis={latestDiagnosis}
+              overrideFootprint={overrideFootprint}
+              overrideAnchor={overrideAnchor}
+              setOverrideFootprint={setOverrideFootprint}
+              setOverrideAnchor={setOverrideAnchor}
+            />
           </div>
         </div>
       </div>
