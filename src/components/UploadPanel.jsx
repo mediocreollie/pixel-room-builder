@@ -5,6 +5,7 @@ function UploadPanel({
   handleFileChange,
   handleCreateItem,
   isCreatingItem,
+  uploadMessage,
 }) {
   return (
     <div className="upload-panel">
@@ -55,6 +56,8 @@ function UploadPanel({
         </button>
         {isCreatingItem ? (
           <p className="upload-feedback">Creating item...</p>
+        ) : uploadMessage ? (
+          <p className="upload-feedback">{uploadMessage}</p>
         ) : null}
       </div>
     </div>

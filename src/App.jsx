@@ -77,6 +77,7 @@ function App() {
   const [previewUrl, setPreviewUrl] = useState("");
   const [isCreatingItem, setIsCreatingItem] = useState(false);
   const [uploadInputKey, setUploadInputKey] = useState(0);
+  const [uploadMessage, setUploadMessage] = useState("");
 
   useEffect(() => {
     const savedPlacedObjects = placedObjects.filter(
@@ -146,12 +147,14 @@ function App() {
   function handleFileChange(event) {
     const file = event.target.files?.[0] ?? null;
     setSelectedFile(file);
+    setUploadMessage("");
   }
 
   async function handleCreateItem() {
     if (!selectedFile || isCreatingItem) return;
 
     setIsCreatingItem(true);
+    setUploadMessage("");
 
     const createdItemCount = Object.keys(items).filter((itemKey) =>
       itemKey.startsWith("uploaded-item-")
@@ -169,8 +172,10 @@ function App() {
             itemId: nextItemKey,
             itemNumber,
           });
+          setUploadMessage("Mock backend item created.");
         } catch (error) {
           console.error("Falling back to fake item generation.", error);
+          setUploadMessage("Backend request failed. Used local fallback instead.");
           nextItem = await createFakeGeneratedItem({
             file: selectedFile,
             itemId: nextItemKey,
@@ -183,6 +188,7 @@ function App() {
           itemId: nextItemKey,
           itemNumber,
         });
+        setUploadMessage("Local mock item created.");
       }
 
       setItems((currentItems) => ({
@@ -312,10 +318,11 @@ function App() {
               inputKey={uploadInputKey}
               selectedFile={selectedFile}
               previewUrl={previewUrl}
-              handleFileChange={handleFileChange}
-              handleCreateItem={handleCreateItem}
-              isCreatingItem={isCreatingItem}
-            />
+            handleFileChange={handleFileChange}
+            handleCreateItem={handleCreateItem}
+            isCreatingItem={isCreatingItem}
+            uploadMessage={uploadMessage}
+          />
           </div>
         </div>
       </div>

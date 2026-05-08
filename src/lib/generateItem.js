@@ -29,8 +29,12 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
   formData.append("image", file);
   formData.append("itemId", itemId);
   formData.append("itemNumber", String(itemNumber));
+  const searchParams = new URLSearchParams({
+    itemId,
+    itemNumber: String(itemNumber),
+  });
 
-  const response = await fetch("/api/generate-item", {
+  const response = await fetch(`/api/generate-item?${searchParams.toString()}`, {
     method: "POST",
     body: formData,
   });
