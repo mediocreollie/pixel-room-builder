@@ -1,32 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 160">
-  <polygon points="180,72 316,106 180,142 44,108" fill="#f1f5f8" />
-  <polygon points="44,108 180,142 180,150 44,116" fill="#d8dde2" />
-  <polygon points="316,106 180,142 180,150 316,114" fill="#e4e9ee" />
+  <polygon points="138,86 244,112 202,144 96,118" fill="#f5f7fa" />
+  <polygon points="96,118 202,144 202,150 96,124" fill="#d9dee5" />
+  <polygon points="244,112 202,144 202,150 244,118" fill="#e7ebf0" />
 
-  <polygon points="180,26 302,56 180,88 58,58" fill="#f8fbfd" />
-  <polygon points="58,58 180,88 180,102 58,72" fill="#d7dde3" />
-  <polygon points="302,56 180,88 180,102 302,70" fill="#e6ebef" />
+  <polygon points="120,64 228,90 244,112 138,86" fill="#ffffff" />
+  <polygon points="138,86 244,112 244,120 138,94" fill="#dde3ea" />
 
-  <polygon points="84,42 124,52 84,84 44,74" fill="#f7fafc" />
-  <polygon points="44,74 84,84 84,116 44,106" fill="#d3d9df" />
-  <polygon points="124,52 84,84 84,116 124,84" fill="#e1e6eb" />
+  <polygon points="108,74 144,82 132,106 96,98" fill="#edf1f5" />
+  <polygon points="148,84 184,92 172,116 136,108" fill="#edf1f5" />
+  <polygon points="188,94 224,102 212,126 176,118" fill="#edf1f5" />
 
-  <polygon points="276,42 316,52 276,84 236,74" fill="#f7fafc" />
-  <polygon points="236,74 276,84 276,116 236,106" fill="#d3d9df" />
-  <polygon points="316,52 276,84 276,116 316,84" fill="#e1e6eb" />
+  <polygon points="122,60 160,70 148,92 110,82" fill="#d8c0a2" />
+  <polygon points="182,74 220,84 208,106 170,96" fill="#d8c0a2" />
 
-  <polygon points="180,58 288,85 180,114 72,87" fill="#f7fbfe" />
-  <polygon points="72,87 180,114 180,126 72,99" fill="#dde3e8" />
-  <polygon points="288,85 180,114 180,126 288,97" fill="#e9eef2" />
+  <polygon points="96,78 120,64 138,86 114,100" fill="#f8fbfd" />
+  <polygon points="228,90 252,76 270,98 246,112" fill="#f8fbfd" />
 
-  <polygon points="180,56 218,65 180,96 142,87" fill="#ffffff" />
-  <polygon points="142,60 180,69 142,100 104,91" fill="#ffffff" />
-  <polygon points="218,60 256,69 218,100 180,91" fill="#ffffff" />
+  <polygon points="108,58 228,86 236,94 116,66" fill="#f9fbfd" />
+  <polygon points="116,66 236,94 228,102 108,74" fill="#e4e9ef" />
 
-  <polygon points="118,36 146,43 118,74 90,67" fill="#d9c0a0" />
-  <polygon points="214,60 242,67 214,98 186,91" fill="#d9c0a0" />
-
-  <rect x="86" y="117" width="10" height="20" rx="3" fill="#3a4350" transform="rotate(24 91 127)" />
-  <rect x="174" y="138" width="10" height="18" rx="3" fill="#3a4350" transform="rotate(12 179 147)" />
-  <rect x="270" y="115" width="10" height="20" rx="3" fill="#3a4350" transform="rotate(24 275 125)" />
+  <rect x="120" y="120" width="8" height="18" rx="3" fill="#3e4754" transform="rotate(28 124 129)" />
+  <rect x="194" y="138" width="8" height="16" rx="3" fill="#3e4754" transform="rotate(18 198 146)" />
 </svg>
