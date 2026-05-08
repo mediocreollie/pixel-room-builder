@@ -54,6 +54,19 @@ function App() {
   }, [placedObjects]);
 
   useEffect(() => {
+    setItems((currentItems) => {
+      const uploadedItems = Object.fromEntries(
+        Object.entries(currentItems).filter(([, item]) => isUploadedItem(item))
+      );
+
+      return {
+        ...initialItems,
+        ...uploadedItems,
+      };
+    });
+  }, [initialItems]);
+
+  useEffect(() => {
     if (!selectedFile) {
       setPreviewUrl("");
       return;
