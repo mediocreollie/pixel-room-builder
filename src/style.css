@@ -416,7 +416,71 @@ button {
 }
 
 .grid-object-debug-dot.is-anchor {
+  background: #dc2626;
+}
+
+.grid-object-debug-dot.is-shadow {
   background: #2563eb;
+}
+
+.grid-object-debug-dot.is-start {
+  background: #ec4899;
+}
+
+.grid-object-debug-dot.is-tile {
+  background: #22d3ee;
+}
+
+.grid-object-debug-image-box {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.grid-object-diagnostic-bar {
+  position: absolute;
+  background: rgba(248, 113, 113, 0.32);
+  border: 1px solid rgba(248, 113, 113, 0.8);
+  pointer-events: none;
+}
+
+.grid-object-diagnostic-cross {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  margin-left: -28px;
+  margin-top: -28px;
+  pointer-events: none;
+}
+
+.grid-object-diagnostic-cross::before,
+.grid-object-diagnostic-cross::after {
+  content: "";
+  position: absolute;
+  background: rgba(248, 113, 113, 0.95);
+}
+
+.grid-object-diagnostic-cross::before {
+  left: 27px;
+  top: 0;
+  width: 2px;
+  height: 56px;
+}
+
+.grid-object-diagnostic-cross::after {
+  left: 0;
+  top: 27px;
+  width: 56px;
+  height: 2px;
+}
+
+.grid-object-diagnostic-rect {
+  position: absolute;
+  display: block;
+  border: 1px solid rgba(248, 113, 113, 0.9);
+  background: rgba(248, 113, 113, 0.28);
+  transform: translate(-50%, -100%);
+  pointer-events: none;
 }
 
 .grid-object-shadow {

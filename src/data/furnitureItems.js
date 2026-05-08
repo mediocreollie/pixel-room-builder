@@ -53,6 +53,7 @@ const furnitureItems = {
     color: "#f97316",
     image: sofaImage,
     render: {
+      anchor: "surface-center",
       scale: {
         x: 1.04,
         y: 0.62,

@@ -2,7 +2,8 @@ const TILE_WIDTH = 64;
 const TILE_HEIGHT = 32;
 const PADDING = 36;
 const FLOOR_TOP = PADDING + 36;
-const DEBUG_OBJECT_ANCHORS = false;
+const DEBUG_RENDER_AUDIT = false;
+const DEBUG_RENDER_VARIANT = "image";
 
 function getIsoPoint(col, row, originX) {
   return {
@@ -27,9 +28,26 @@ function getTileStyle(index, gridSize, originX, findObjectAtTile, previewTiles) 
   };
 }
 
+function getTileInfo(tileIndex, gridSize, originX) {
+  const row = Math.floor(tileIndex / gridSize);
+  const col = tileIndex % gridSize;
+  const point = getIsoPoint(col, row, originX);
+
+  return {
+    index: tileIndex,
+    row,
+    col,
+    x: point.x,
+    y: point.y,
+    centerX: point.x,
+    centerY: point.y + TILE_HEIGHT / 2,
+  };
+}
+
 function getFootprintMetrics(index, item, gridSize, originX) {
-  const row = Math.floor(index / gridSize);
-  const col = index % gridSize;
+  const startTile = getTileInfo(index, gridSize, originX);
+  const row = startTile.row;
+  const col = startTile.col;
   const corners = [
     getIsoPoint(col, row, originX),
     getIsoPoint(col + item.width, row, originX),
@@ -42,23 +60,19 @@ function getFootprintMetrics(index, item, gridSize, originX) {
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-  const tileCenters = [];
+  const occupiedTiles = [];
 
   for (let y = 0; y < item.height; y += 1) {
     for (let x = 0; x < item.width; x += 1) {
-      const point = getIsoPoint(col + x, row + y, originX);
-
-      tileCenters.push({
-        x: point.x,
-        y: point.y + TILE_HEIGHT / 2,
-      });
+      const tileIndex = index + y * gridSize + x;
+      occupiedTiles.push(getTileInfo(tileIndex, gridSize, originX));
     }
   }
 
   const centerSurfaceX =
-    tileCenters.reduce((sum, tile) => sum + tile.x, 0) / tileCenters.length;
+    occupiedTiles.reduce((sum, tile) => sum + tile.centerX, 0) / occupiedTiles.length;
   const centerSurfaceY =
-    tileCenters.reduce((sum, tile) => sum + tile.y, 0) / tileCenters.length;
+    occupiedTiles.reduce((sum, tile) => sum + tile.centerY, 0) / occupiedTiles.length;
   const widthAxisSpan = item.width * (TILE_WIDTH / 2);
   const depthAxisSpan = item.height * (TILE_WIDTH / 2);
 
@@ -76,6 +90,8 @@ function getFootprintMetrics(index, item, gridSize, originX) {
     surfaceX: centerSurfaceX,
     widthAxisSpan,
     depthAxisSpan,
+    occupiedTiles,
+    startTile,
   };
 }
 
@@ -86,6 +102,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const offset = render.offset || {};
   const shadow = render.shadow || {};
   const liftConfig = render.lift || {};
+  const anchorMode = render.anchor || "bottom-center";
   const footprint = getFootprintMetrics(index, item, gridSize, originX);
   const liftScale = liftConfig.scale || 1;
   const liftOffset = liftConfig.offset || 0;
@@ -95,12 +112,61 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const offsetX = offset.x || 0;
   const offsetY = offset.y || 0;
   const shadowScale = shadow.scale || 1;
-  const widthBias = Math.max(0, footprint.widthAxisSpan - footprint.depthAxisSpan);
+  const widthBias =
+    anchorMode === "surface-center"
+      ? 0
+      : Math.max(0, footprint.widthAxisSpan - footprint.depthAxisSpan);
   const imageWidth = (footprint.width + widthBias) * scaleX + 12;
   const imageHeight = (footprint.height + lift) * scaleY;
   const shadowWidth = footprint.width * 0.76 * shadowScale;
   const anchorX = footprint.surfaceX;
   const anchorY = footprint.surfaceY;
+  const shadowCenterX = anchorX + offsetX;
+  const shadowCenterY = anchorY - TILE_HEIGHT * 0.28 + Math.max(10, footprint.height * 0.55) / 2;
+  const imageTop =
+    anchorMode === "surface-center"
+      ? anchorY + offsetY
+      : anchorY - lift + offsetY;
+  const imageTransform =
+    anchorMode === "surface-center"
+      ? "translate(-50%, -50%)"
+      : "translate(-50%, -100%)";
+
+  if (DEBUG_RENDER_AUDIT) {
+    console.log("[render-audit]", {
+      objectId: `${item.id}-${index}`,
+      itemId: item.id,
+      width: item.width,
+      height: item.height,
+      startIndex: index,
+      occupiedTileIndexes: footprint.occupiedTiles.map((tile) => tile.index),
+      occupiedTiles: footprint.occupiedTiles.map((tile) => ({
+        index: tile.index,
+        row: tile.row,
+        col: tile.col,
+        isoX: tile.x,
+        isoY: tile.y,
+        centerX: tile.centerX,
+        centerY: tile.centerY,
+      })),
+      minX: footprint.minX,
+      maxX: footprint.maxX,
+      minY: footprint.minY,
+      maxY: footprint.maxY,
+      centerX: footprint.centerX,
+      centerY: footprint.centerY,
+      surfaceX: footprint.surfaceX,
+      surfaceY: footprint.surfaceY,
+      shadowX: shadowCenterX,
+      shadowY: shadowCenterY,
+      imageX: anchorX + offsetX,
+      imageY: imageTop,
+      imageWidth,
+      imageHeight,
+      transform: imageTransform,
+      renderConfig: render,
+    });
+  }
 
   return {
     container: {
@@ -111,13 +177,13 @@ function getObjectOverlay(placedObject, gridSize, originX) {
     },
     image: {
       left: anchorX + offsetX,
-      top: anchorY - lift + offsetY,
+      top: imageTop,
       width: imageWidth,
       height: imageHeight,
-      transform: "translate(-50%, -100%)",
+      transform: imageTransform,
     },
     shadow: {
-      left: anchorX - shadowWidth / 2 + offsetX,
+      left: shadowCenterX - shadowWidth / 2,
       top: anchorY - TILE_HEIGHT * 0.28,
       width: shadowWidth,
       height: Math.max(10, footprint.height * 0.55),
@@ -131,12 +197,33 @@ function getObjectOverlay(placedObject, gridSize, originX) {
         left: anchorX,
         top: anchorY,
       },
+      shadow: {
+        left: shadowCenterX,
+        top: shadowCenterY,
+      },
       footprint: {
         left: footprint.minX,
         top: footprint.minY,
         width: footprint.width,
         height: footprint.height,
       },
+      imageBox: {
+        left: anchorX + offsetX - imageWidth / 2,
+        top:
+          anchorMode === "surface-center"
+            ? imageTop - imageHeight / 2
+            : imageTop - imageHeight,
+        width: imageWidth,
+        height: imageHeight,
+      },
+      startTile: {
+        left: footprint.startTile.centerX,
+        top: footprint.startTile.centerY,
+      },
+      occupiedTiles: footprint.occupiedTiles.map((tile) => ({
+        left: tile.centerX,
+        top: tile.centerY,
+      })),
     },
   };
 }
@@ -172,23 +259,54 @@ function IsoTileLayer({
 }
 
 function FurnitureSprite({ placedObject, overlayStyle }) {
+  const isDiagnosticBar =
+    DEBUG_RENDER_AUDIT &&
+    (placedObject.item.id === "sofa" || placedObject.item.id === "sofa-test-1x3") &&
+    DEBUG_RENDER_VARIANT === "footprint-bar";
+  const isDiagnosticCross =
+    DEBUG_RENDER_AUDIT &&
+    (placedObject.item.id === "sofa" || placedObject.item.id === "sofa-test-1x3") &&
+    DEBUG_RENDER_VARIANT === "center-cross";
+  const isDiagnosticRect =
+    DEBUG_RENDER_AUDIT &&
+    (placedObject.item.id === "sofa" || placedObject.item.id === "sofa-test-1x3") &&
+    DEBUG_RENDER_VARIANT === "anchor-rect";
+
   return (
     <div className="grid-object" style={overlayStyle.container}>
-      {DEBUG_OBJECT_ANCHORS ? (
+      {DEBUG_RENDER_AUDIT ? (
         <>
           <div className="grid-object-debug-footprint" style={overlayStyle.debug.footprint} />
           <div className="grid-object-debug-dot is-center" style={overlayStyle.debug.center} />
           <div className="grid-object-debug-dot is-anchor" style={overlayStyle.debug.anchor} />
+          <div className="grid-object-debug-dot is-shadow" style={overlayStyle.debug.shadow} />
+          <div className="grid-object-debug-dot is-start" style={overlayStyle.debug.startTile} />
+          <div className="grid-object-debug-image-box" style={overlayStyle.debug.imageBox} />
+          {overlayStyle.debug.occupiedTiles.map((tile, index) => (
+            <div
+              className="grid-object-debug-dot is-tile"
+              key={`${placedObject.item.id}-${placedObject.index}-tile-${index}`}
+              style={tile}
+            />
+          ))}
         </>
       ) : null}
 
       <div className="grid-object-shadow" style={overlayStyle.shadow} />
-      <img
-        className="grid-object-image"
-        src={placedObject.item.image}
-        alt={placedObject.item.name}
-        style={overlayStyle.image}
-      />
+      {isDiagnosticBar ? (
+        <div className="grid-object-diagnostic-bar" style={overlayStyle.debug.footprint} />
+      ) : isDiagnosticCross ? (
+        <div className="grid-object-diagnostic-cross" style={overlayStyle.debug.center} />
+      ) : isDiagnosticRect ? (
+        <div className="grid-object-diagnostic-rect" style={overlayStyle.image} />
+      ) : (
+        <img
+          className="grid-object-image"
+          src={placedObject.item.image}
+          alt={placedObject.item.name}
+          style={overlayStyle.image}
+        />
+      )}
     </div>
   );
 }
