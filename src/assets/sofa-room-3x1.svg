@@ -1,14 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 80">
-  <g fill="none" stroke="#4f20bc" stroke-width="2" stroke-linejoin="miter" shape-rendering="crispEdges">
-    <polygon points="18,30 64,42 110,30 64,18" fill="#31d8d2" />
-    <polygon points="18,30 18,46 64,58 64,42" fill="#26c3be" />
-    <polygon points="64,42 64,58 110,46 110,30" fill="#1ea9a4" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 120">
+  <g fill="none" stroke="#5a27c8" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <polygon points="42,52 108,68 174,52 108,36" fill="#34ddd6"/>
+    <polygon points="42,52 42,66 108,82 108,68" fill="#27cfc8"/>
+    <polygon points="108,68 108,82 174,66 174,52" fill="#20bbb5"/>
 
-    <polygon points="24,20 64,30 104,20 64,10" fill="#ffffff" />
+    <polygon points="38,26 68,34 68,58 38,50" fill="#ffffff"/>
+    <polygon points="68,34 102,42 102,64 68,56" fill="#ffffff"/>
+    <polygon points="102,42 136,50 136,72 102,64" fill="#ffffff"/>
 
-    <rect x="22" y="46" width="3" height="8" fill="#2a1f14" stroke="#2a1f14" />
-    <rect x="54" y="54" width="3" height="7" fill="#2a1f14" stroke="#2a1f14" />
-    <rect x="86" y="62" width="3" height="7" fill="#2a1f14" stroke="#2a1f14" />
-    <rect x="102" y="44" width="3" height="8" fill="#2a1f14" stroke="#2a1f14" />
+    <polygon points="40,18 70,26 70,46 40,38" fill="#34ddd6"/>
+    <polygon points="70,26 104,34 104,54 70,46" fill="#34ddd6"/>
+    <polygon points="104,34 138,42 138,62 104,54" fill="#34ddd6"/>
+
+    <line x1="68" y1="34" x2="68" y2="56"/>
+    <line x1="102" y1="42" x2="102" y2="64"/>
+    <line x1="70" y1="26" x2="70" y2="46"/>
+    <line x1="104" y1="34" x2="104" y2="54"/>
+
+    <polygon points="24,18 38,22 38,62 24,58" fill="#5a27c8"/>
+    <polygon points="38,22 54,18 54,58 38,62" fill="#34ddd6"/>
+    <polygon points="38,22 68,30 68,42 38,34" fill="#ffffff"/>
+
+    <polygon points="136,50 166,58 166,70 136,62" fill="#ffffff"/>
+    <polygon points="166,58 178,54 178,90 166,94" fill="#34ddd6"/>
+    <polygon points="178,54 194,50 194,86 178,90" fill="#5a27c8"/>
+
+    <line x1="42" y1="52" x2="108" y2="68"/>
+    <line x1="108" y1="68" x2="174" y2="52"/>
+
+    <rect x="38" y="66" width="3" height="8" fill="#332519" stroke="#332519"/>
+    <rect x="82" y="76" width="3" height="7" fill="#332519" stroke="#332519"/>
+    <rect x="126" y="86" width="3" height="7" fill="#332519" stroke="#332519"/>
+    <rect x="178" y="64" width="3" height="8" fill="#332519" stroke="#332519"/>
   </g>
 </svg>
