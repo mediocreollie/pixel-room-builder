@@ -1,36 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 232 136">
   <g fill="none" stroke="#5b23d4" stroke-linejoin="round" stroke-linecap="round">
-    <polygon points="50,86 122,104 194,86 122,68" fill="#ffffff" stroke-width="4"/>
-    <polygon points="50,86 50,112 122,130 122,104" fill="#28dfe0" stroke-width="4"/>
-    <polygon points="122,104 122,130 194,112 194,86" fill="#20c6c9" stroke-width="4"/>
+    <polygon points="38,62 118,82 198,62 118,42" fill="#ffffff" stroke-width="4"/>
+    <polygon points="38,62 38,82 118,102 118,82" fill="#40ddd6" stroke-width="4"/>
+    <polygon points="118,82 118,102 198,82 198,62" fill="#2fd0c8" stroke-width="4"/>
 
-    <polygon points="44,58 122,78 200,58 122,38" fill="#d8ffff" stroke-width="4"/>
-    <polygon points="44,58 44,82 122,102 122,78" fill="#28dfe0" stroke-width="4"/>
-    <polygon points="122,78 122,102 200,82 200,58" fill="#20c6c9" stroke-width="4"/>
+    <polygon points="34,40 118,60 202,40 118,20" fill="#ffffff" stroke-width="4"/>
+    <polygon points="34,40 34,60 118,80 118,60" fill="#40ddd6" stroke-width="4"/>
+    <polygon points="118,60 118,80 202,60 202,40" fill="#36d7cf" stroke-width="4"/>
 
-    <polygon points="34,52 50,56 50,112 34,108" fill="#5b23d4" stroke-width="4"/>
-    <polygon points="50,56 66,52 66,108 50,112" fill="#7a3cff" stroke-width="4"/>
-    <polygon points="194,56 210,52 210,108 194,112" fill="#5b23d4" stroke-width="4"/>
-    <polygon points="178,52 194,56 194,112 178,108" fill="#7a3cff" stroke-width="4"/>
+    <polygon points="18,34 38,38 38,94 18,90" fill="#5b23d4" stroke-width="4"/>
+    <polygon points="38,38 60,34 60,90 38,94" fill="#6d31ec" stroke-width="4"/>
+    <polygon points="176,34 198,38 198,94 176,90" fill="#6d31ec" stroke-width="4"/>
+    <polygon points="198,38 218,34 218,90 198,94" fill="#5b23d4" stroke-width="4"/>
 
-    <polygon points="54,60 96,70 96,88 54,78" fill="#ffffff" stroke-width="3.5"/>
-    <polygon points="98,71 142,82 142,98 98,87" fill="#ffffff" stroke-width="3.5"/>
-    <polygon points="144,82 188,92 188,108 144,98" fill="#ffffff" stroke-width="3.5"/>
+    <polygon points="48,44 92,54 92,78 48,68" fill="#ffffff" stroke-width="3.5"/>
+    <polygon points="92,55 138,66 138,88 92,77" fill="#ffffff" stroke-width="3.5"/>
+    <polygon points="138,66 184,76 184,98 138,88" fill="#ffffff" stroke-width="3.5"/>
 
-    <polygon points="58,46 98,56 98,74 58,64" fill="#b8ffff" stroke-width="3.5"/>
-    <polygon points="100,56 144,68 144,84 100,74" fill="#b8ffff" stroke-width="3.5"/>
-    <polygon points="146,68 186,78 186,94 146,84" fill="#b8ffff" stroke-width="3.5"/>
+    <polygon points="54,28 96,38 96,56 54,46" fill="#bffffd" stroke-width="3.5"/>
+    <polygon points="98,39 142,50 142,66 98,55" fill="#bffffd" stroke-width="3.5"/>
+    <polygon points="144,50 186,60 186,76 144,66" fill="#bffffd" stroke-width="3.5"/>
 
-    <line x1="96" y1="70" x2="96" y2="88" stroke-width="3.5"/>
-    <line x1="142" y1="82" x2="142" y2="98" stroke-width="3.5"/>
-    <line x1="98" y1="56" x2="98" y2="74" stroke-width="3.5"/>
-    <line x1="144" y1="68" x2="144" y2="84" stroke-width="3.5"/>
+    <line x1="92" y1="54" x2="92" y2="78" stroke-width="3.5"/>
+    <line x1="138" y1="66" x2="138" y2="88" stroke-width="3.5"/>
+    <line x1="96" y1="38" x2="96" y2="56" stroke-width="3.5"/>
+    <line x1="142" y1="50" x2="142" y2="66" stroke-width="3.5"/>
+    <line x1="38" y1="62" x2="118" y2="82" stroke-width="4"/>
+    <line x1="118" y1="82" x2="198" y2="62" stroke-width="4"/>
 
-    <line x1="50" y1="86" x2="122" y2="104" stroke-width="4"/>
-    <line x1="122" y1="104" x2="194" y2="86" stroke-width="4"/>
-
-    <rect x="54" y="114" width="8" height="18" rx="2.5" fill="#5b23d4" stroke-width="3" transform="rotate(18 58 123)"/>
-    <rect x="106" y="127" width="8" height="18" rx="2.5" fill="#5b23d4" stroke-width="3" transform="rotate(8 110 136)"/>
-    <rect x="176" y="112" width="8" height="18" rx="2.5" fill="#5b23d4" stroke-width="3" transform="rotate(18 180 121)"/>
+    <rect x="34" y="92" width="7" height="18" rx="2" fill="#5b23d4" stroke-width="3" transform="rotate(18 37.5 101)"/>
+    <rect x="106" y="109" width="7" height="16" rx="2" fill="#5b23d4" stroke-width="3" transform="rotate(8 109.5 117)"/>
+    <rect x="192" y="90" width="7" height="18" rx="2" fill="#5b23d4" stroke-width="3" transform="rotate(18 195.5 99)"/>
   </g>
 </svg>
