@@ -1,27 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 80">
-  <g shape-rendering="crispEdges" stroke="#4f20bc" stroke-width="2">
-    <rect x="18" y="38" width="72" height="14" fill="#27cfc7" />
-    <rect x="18" y="32" width="72" height="8" fill="#33ddd6" />
+  <g fill="none" stroke="#4f20bc" stroke-width="2" stroke-linejoin="miter" shape-rendering="crispEdges">
+    <polygon points="18,30 64,42 110,30 64,18" fill="#31d8d2" />
+    <polygon points="18,30 18,46 64,58 64,42" fill="#26c3be" />
+    <polygon points="64,42 64,58 110,46 110,30" fill="#1ea9a4" />
 
-    <rect x="24" y="22" width="18" height="10" fill="#33ddd6" />
-    <rect x="42" y="22" width="18" height="10" fill="#33ddd6" />
-    <rect x="60" y="22" width="18" height="10" fill="#33ddd6" />
+    <polygon points="24,20 64,30 104,20 64,10" fill="#ffffff" />
 
-    <rect x="24" y="32" width="18" height="8" fill="#ffffff" />
-    <rect x="42" y="32" width="18" height="8" fill="#ffffff" />
-    <rect x="60" y="32" width="18" height="8" fill="#ffffff" />
-
-    <rect x="12" y="18" width="12" height="30" fill="#4f20bc" />
-    <rect x="24" y="18" width="6" height="30" fill="#33ddd6" />
-    <rect x="24" y="18" width="18" height="8" fill="#ffffff" />
-
-    <rect x="78" y="28" width="18" height="8" fill="#ffffff" />
-    <rect x="96" y="28" width="8" height="30" fill="#33ddd6" />
-    <rect x="104" y="24" width="12" height="34" fill="#4f20bc" />
-
-    <rect x="22" y="52" width="3" height="8" fill="#2a1f14" stroke="#2a1f14" />
-    <rect x="52" y="58" width="3" height="7" fill="#2a1f14" stroke="#2a1f14" />
-    <rect x="82" y="64" width="3" height="7" fill="#2a1f14" stroke="#2a1f14" />
-    <rect x="106" y="50" width="3" height="8" fill="#2a1f14" stroke="#2a1f14" />
+    <rect x="22" y="46" width="3" height="8" fill="#2a1f14" stroke="#2a1f14" />
+    <rect x="54" y="54" width="3" height="7" fill="#2a1f14" stroke="#2a1f14" />
+    <rect x="86" y="62" width="3" height="7" fill="#2a1f14" stroke="#2a1f14" />
+    <rect x="102" y="44" width="3" height="8" fill="#2a1f14" stroke="#2a1f14" />
   </g>
 </svg>
