@@ -18,6 +18,17 @@ import {
 
 const PLACED_OBJECTS_STORAGE_KEY = "furniture-pixel-app-placed-objects";
 const AUTO_OVERRIDE_VALUE = "auto";
+const MAX_GENERATION_HISTORY = 8;
+
+function getAnchorLabel(item) {
+  const anchor = item.render?.anchor;
+
+  if (!anchor || anchor === "bottom-center") {
+    return "upright";
+  }
+
+  return anchor;
+}
 
 function applyGeneratedOverrides(item, overrides) {
   const nextItem = {
@@ -117,6 +128,8 @@ function App() {
   const [overrideAnchor, setOverrideAnchor] = useState(AUTO_OVERRIDE_VALUE);
   const [latestGeneratedItemKey, setLatestGeneratedItemKey] = useState("");
   const [latestGeneratedBaseItem, setLatestGeneratedBaseItem] = useState(null);
+  const [latestSourceFile, setLatestSourceFile] = useState(null);
+  const [generationHistory, setGenerationHistory] = useState([]);
 
   useEffect(() => {
     const savedPlacedObjects = placedObjects.filter(
@@ -186,6 +199,7 @@ function App() {
   function handleFileChange(event) {
     const file = event.target.files?.[0] ?? null;
     setSelectedFile(file);
+    setLatestSourceFile(file);
     setUploadMessage("");
   }
 
@@ -217,11 +231,81 @@ function App() {
     overrideFootprint,
   ]);
 
-  async function handleCreateItem() {
-    if (!selectedFile || isCreatingItem) return;
+  useEffect(() => {
+    if (!latestGeneratedItemKey) {
+      return;
+    }
+
+    setGenerationHistory((currentHistory) =>
+      currentHistory.map((entry) => {
+        if (entry.itemKey !== latestGeneratedItemKey) {
+          return entry;
+        }
+
+        const nextFootprint =
+          overrideFootprint !== AUTO_OVERRIDE_VALUE
+            ? overrideFootprint
+            : `${entry.diagnosisState?.data?.footprint?.width || entry.footprint.width}x${
+                entry.diagnosisState?.data?.footprint?.height || entry.footprint.height
+              }`;
+        const nextAnchor =
+          overrideAnchor !== AUTO_OVERRIDE_VALUE
+            ? overrideAnchor
+            : entry.diagnosisState?.data?.anchor || entry.anchor;
+
+        return {
+          ...entry,
+          footprint: {
+            width: Number(nextFootprint.split("x")[0]),
+            height: Number(nextFootprint.split("x")[1]),
+          },
+          anchor: nextAnchor,
+          overrideFootprint,
+          overrideAnchor,
+        };
+      })
+    );
+  }, [latestGeneratedItemKey, overrideAnchor, overrideFootprint]);
+
+  function addHistoryEntry({
+    itemKey,
+    item,
+    baseItem,
+    diagnosisState,
+    overrideState,
+    sourceFileName,
+  }) {
+    setGenerationHistory((currentHistory) => {
+      const nextOrder = currentHistory.length > 0 ? currentHistory[0].order + 1 : 1;
+      const nextEntry = {
+        id: `${itemKey}-${Date.now()}`,
+        itemKey,
+        image: item.image,
+        displayName: item.name,
+        footprint: {
+          width: item.width,
+          height: item.height,
+        },
+        anchor: getAnchorLabel(item),
+        createdAt: Date.now(),
+        order: nextOrder,
+        diagnosisState,
+        overrideFootprint: overrideState.footprint,
+        overrideAnchor: overrideState.anchor,
+        baseItem,
+        sourceFileName,
+      };
+
+      return [nextEntry, ...currentHistory].slice(0, MAX_GENERATION_HISTORY);
+    });
+  }
+
+  async function runGeneration(sourceFile) {
+    if (!sourceFile || isCreatingItem) return;
 
     setIsCreatingItem(true);
     setUploadMessage("");
+    setLatestSourceFile(sourceFile);
 
     const createdItemCount = Object.keys(items).filter((itemKey) =>
       itemKey.startsWith("uploaded-item-")
@@ -231,20 +315,22 @@ function App() {
 
     try {
       let generationResult;
+      let diagnosisState;
 
       if (isRealGenerationEnabled()) {
         try {
           generationResult = await requestGeneratedItem({
-            file: selectedFile,
+            file: sourceFile,
             itemId: nextItemKey,
             itemNumber,
           });
-          setUploadMessage("AI-generated item created.");
-          setLatestDiagnosis({
+          diagnosisState = {
             available: true,
             source: "ai",
             data: generationResult.diagnosis,
-          });
+          };
+          setUploadMessage("AI-generated item created.");
+          setLatestDiagnosis(diagnosisState);
           setOverrideFootprint(AUTO_OVERRIDE_VALUE);
           setOverrideAnchor(AUTO_OVERRIDE_VALUE);
           setLatestGeneratedItemKey(nextItemKey);
@@ -253,15 +339,16 @@ function App() {
           console.error("Falling back to fake item generation.", error);
           setUploadMessage("Backend request failed. Used local fallback instead.");
           generationResult = await createFakeGeneratedItem({
-            file: selectedFile,
+            file: sourceFile,
             itemId: nextItemKey,
             itemNumber,
           });
-          setLatestDiagnosis({
+          diagnosisState = {
             available: false,
             source: "fallback",
             data: null,
-          });
+          };
+          setLatestDiagnosis(diagnosisState);
           setOverrideFootprint(AUTO_OVERRIDE_VALUE);
           setOverrideAnchor(AUTO_OVERRIDE_VALUE);
           setLatestGeneratedItemKey("");
@@ -269,16 +356,17 @@ function App() {
         }
       } else {
         generationResult = await createFakeGeneratedItem({
-          file: selectedFile,
+          file: sourceFile,
           itemId: nextItemKey,
           itemNumber,
         });
-        setUploadMessage("Local mock item created.");
-        setLatestDiagnosis({
+        diagnosisState = {
           available: false,
           source: "fake",
           data: null,
-        });
+        };
+        setUploadMessage("Local mock item created.");
+        setLatestDiagnosis(diagnosisState);
         setOverrideFootprint(AUTO_OVERRIDE_VALUE);
         setOverrideAnchor(AUTO_OVERRIDE_VALUE);
         setLatestGeneratedItemKey("");
@@ -298,6 +386,18 @@ function App() {
         [nextItemKey]: finalItem,
       }));
 
+      addHistoryEntry({
+        itemKey: nextItemKey,
+        item: finalItem,
+        baseItem: generationResult.item,
+        diagnosisState,
+        overrideState: {
+          footprint: overrideFootprint,
+          anchor: overrideAnchor,
+        },
+        sourceFileName: sourceFile.name,
+      });
+
       setSelectedItem(nextItemKey);
       setSelectedFile(null);
       setPreviewUrl("");
@@ -305,6 +405,23 @@ function App() {
     } finally {
       setIsCreatingItem(false);
     }
+  }
+
+  async function handleCreateItem() {
+    await runGeneration(selectedFile);
+  }
+
+  async function handleRegenerateLatest() {
+    await runGeneration(latestSourceFile);
+  }
+
+  function handleHistorySelect(entry) {
+    setSelectedItem(entry.itemKey);
+    setLatestDiagnosis(entry.diagnosisState);
+    setOverrideFootprint(entry.overrideFootprint || AUTO_OVERRIDE_VALUE);
+    setOverrideAnchor(entry.overrideAnchor || AUTO_OVERRIDE_VALUE);
+    setLatestGeneratedItemKey(entry.itemKey);
+    setLatestGeneratedBaseItem(entry.baseItem || items[entry.itemKey] || null);
   }
 
   function handleTileClick(index) {
@@ -429,6 +546,11 @@ function App() {
               overrideAnchor={overrideAnchor}
               setOverrideFootprint={setOverrideFootprint}
               setOverrideAnchor={setOverrideAnchor}
+              generationHistory={generationHistory}
+              selectedItem={selectedItem}
+              handleHistorySelect={handleHistorySelect}
+              handleRegenerateLatest={handleRegenerateLatest}
+              canRegenerate={!!latestSourceFile && !isCreatingItem}
             />
           </div>
         </div>

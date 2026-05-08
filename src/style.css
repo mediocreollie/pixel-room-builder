@@ -327,6 +327,68 @@ button {
   color: #7d6b56;
 }
 
+.history-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #ddd2c1;
+  border-radius: 16px;
+  background: #fffaf2;
+}
+
+.history-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.history-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d9ccb8;
+  border-radius: 14px;
+  background: #fffdf9;
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-card.is-active {
+  border-color: #9c6b2f;
+  box-shadow: 0 0 0 3px rgba(156, 107, 47, 0.16);
+}
+
+.history-card-image {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #f9f3e8;
+}
+
+.history-card-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: #6a5a47;
+  font-size: 12px;
+}
+
+.history-card-meta strong {
+  color: #2a241d;
+  font-size: 13px;
+}
+
 .inventory-panel-header {
   display: flex;
   flex-direction: column;

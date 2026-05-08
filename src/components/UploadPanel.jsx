@@ -11,6 +11,11 @@ function UploadPanel({
   overrideAnchor,
   setOverrideFootprint,
   setOverrideAnchor,
+  generationHistory,
+  selectedItem,
+  handleHistorySelect,
+  handleRegenerateLatest,
+  canRegenerate,
 }) {
   const diagnosis = latestDiagnosis?.data;
   const hasDiagnosis = latestDiagnosis?.available && diagnosis;
@@ -142,6 +147,54 @@ function UploadPanel({
         ) : (
           <p className="diagnosis-empty">
             Generate an item to see what the AI thought the uploaded object was.
+          </p>
+        )}
+      </div>
+
+      <div className="history-panel">
+        <div className="history-panel-header">
+          <h3 className="diagnosis-title">Generation History</h3>
+          <button
+            className="toolbar-button"
+            type="button"
+            onClick={handleRegenerateLatest}
+            disabled={!canRegenerate}
+          >
+            Regenerate
+          </button>
+        </div>
+
+        {generationHistory.length > 0 ? (
+          <div className="history-list">
+            {generationHistory.map((entry) => {
+              const isActive = selectedItem === entry.itemKey;
+
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className={`history-card ${isActive ? "is-active" : ""}`}
+                  onClick={() => handleHistorySelect(entry)}
+                >
+                  <img
+                    className="history-card-image"
+                    src={entry.image}
+                    alt={entry.displayName}
+                  />
+                  <span className="history-card-meta">
+                    <strong>{entry.displayName}</strong>
+                    <span>
+                      {entry.footprint.width}x{entry.footprint.height} · {entry.anchor}
+                    </span>
+                    <span>#{entry.order}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="diagnosis-empty">
+            Generated items from this session will appear here for quick reuse.
           </p>
         )}
       </div>
