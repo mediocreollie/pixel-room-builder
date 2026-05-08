@@ -103,6 +103,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const shadow = render.shadow || {};
   const liftConfig = render.lift || {};
   const anchorMode = render.anchor || "bottom-center";
+  const isSurfaceCentered = anchorMode === "surface-center";
   const footprint = getFootprintMetrics(index, item, gridSize, originX);
   const liftScale = liftConfig.scale || 1;
   const liftOffset = liftConfig.offset || 0;
@@ -113,27 +114,38 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const offsetY = offset.y || 0;
   const shadowScale = shadow.scale || 1;
   const widthBias =
-    anchorMode === "surface-center"
+    isSurfaceCentered
       ? 0
       : Math.max(0, footprint.widthAxisSpan - footprint.depthAxisSpan);
-  const imageWidth = (footprint.width + widthBias) * scaleX + 12;
-  const imageHeight = (footprint.height + lift) * scaleY;
+  const uprightWidth = (footprint.width + widthBias) * scaleX + 12;
+  const uprightHeight = (footprint.height + lift) * scaleY;
+  const surfaceWidth = Math.min(
+    footprint.width,
+    Math.max(footprint.width * 0.4, footprint.width * scaleX)
+  );
+  const surfaceHeight = Math.min(
+    footprint.height,
+    Math.max(footprint.height * 0.4, footprint.height * scaleY)
+  );
+  const imageWidth = isSurfaceCentered ? surfaceWidth : uprightWidth;
+  const imageHeight = isSurfaceCentered ? surfaceHeight : uprightHeight;
   const shadowWidth = footprint.width * 0.76 * shadowScale;
   const anchorX =
-    anchorMode === "surface-center" ? footprint.surfaceX : footprint.centerX;
+    isSurfaceCentered ? footprint.surfaceX : footprint.centerX;
   const anchorY =
-    anchorMode === "surface-center" ? footprint.surfaceY : footprint.floorY;
+    isSurfaceCentered ? footprint.surfaceY : footprint.floorY;
   const shadowCenterX = anchorX + offsetX;
   const shadowCenterY =
     anchorY - TILE_HEIGHT * 0.28 + Math.max(10, footprint.height * 0.55) / 2;
   const imageTop =
-    anchorMode === "surface-center"
+    isSurfaceCentered
       ? anchorY + offsetY
       : anchorY - lift + offsetY;
   const imageTransform =
-    anchorMode === "surface-center"
+    isSurfaceCentered
       ? "translate(-50%, -50%)"
       : "translate(-50%, -100%)";
+  const imageObjectPosition = isSurfaceCentered ? "center center" : "center bottom";
 
   if (DEBUG_RENDER_AUDIT) {
     console.log("[render-audit]", {
@@ -184,6 +196,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
       width: imageWidth,
       height: imageHeight,
       transform: imageTransform,
+      objectPosition: imageObjectPosition,
     },
     shadow: {
       left: shadowCenterX - shadowWidth / 2,
@@ -213,7 +226,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
       imageBox: {
         left: anchorX + offsetX - imageWidth / 2,
         top:
-          anchorMode === "surface-center"
+          isSurfaceCentered
             ? imageTop - imageHeight / 2
             : imageTop - imageHeight,
         width: imageWidth,
