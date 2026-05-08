@@ -56,19 +56,12 @@ const furnitureItems = {
     image: sofaImage,
     render: {
       anchor: "sprite-floor",
-      scale: {
-        x: 1,
-        y: 1,
-      },
       offset: {
         x: 0,
-        y: 14,
-      },
-      shadow: {
-        scale: 0.92,
+        y: 10,
       },
       lift: {
-        scale: 0.22,
+        scale: 0.2,
         offset: 0,
       },
     },
