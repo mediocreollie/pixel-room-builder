@@ -1,23 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 130">
-  <polygon points="180,54 308,86 180,120 52,88" fill="#cf6f39" />
-  <polygon points="52,88 180,120 180,126 52,94" fill="#ab5529" />
-  <polygon points="308,86 180,120 180,126 308,92" fill="#bc6331" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 138">
+  <polygon points="160,54 273,82 160,112 47,84" fill="#c96a37" />
+  <polygon points="47,84 160,112 160,118 47,90" fill="#a74f28" />
+  <polygon points="273,82 160,112 160,118 273,88" fill="#b95d30" />
 
-  <polygon points="180,20 296,49 180,80 64,51" fill="#9a4222" />
-  <polygon points="64,51 180,80 180,92 64,63" fill="#7c3119" />
-  <polygon points="296,49 180,80 180,92 296,61" fill="#8c3920" />
+  <polygon points="160,24 260,49 160,76 60,51" fill="#904022" />
+  <polygon points="60,51 160,76 160,88 60,63" fill="#6f2f17" />
+  <polygon points="260,49 160,76 160,88 260,61" fill="#7e381c" />
 
-  <polygon points="92,36 128,45 92,72 56,63" fill="#a54e28" />
-  <polygon points="56,63 92,72 92,100 56,91" fill="#8a3a1d" />
-  <polygon points="128,45 92,72 92,100 128,73" fill="#964424" />
+  <polygon points="82,40 115,48 82,72 49,64" fill="#9f4b28" />
+  <polygon points="49,64 82,72 82,96 49,88" fill="#81371c" />
+  <polygon points="115,48 82,72 82,96 115,72" fill="#904224" />
 
-  <polygon points="268,36 304,45 268,72 232,63" fill="#a54e28" />
-  <polygon points="232,63 268,72 268,100 232,91" fill="#8a3a1d" />
-  <polygon points="304,45 268,72 268,100 304,73" fill="#964424" />
+  <polygon points="238,40 271,48 238,72 205,64" fill="#9f4b28" />
+  <polygon points="205,64 238,72 238,96 205,88" fill="#81371c" />
+  <polygon points="271,48 238,72 238,96 271,72" fill="#904224" />
 
-  <polygon points="180,46 276,70 180,96 84,72" fill="#efb27f" />
-  <polygon points="84,72 180,96 180,110 84,86" fill="#d07c47" />
-  <polygon points="276,70 180,96 180,110 276,84" fill="#df935d" />
+  <polygon points="160,44 245,65 160,88 75,67" fill="#efb78a" />
+  <polygon points="75,67 160,88 160,100 75,79" fill="#cf8450" />
+  <polygon points="245,65 160,88 160,100 245,77" fill="#dd9965" />
 
-  <polygon points="180,34 266,56 180,78 94,56" fill="#f6caa6" />
+  <polygon points="160,34 232,52 160,71 88,53" fill="#f7d8bd" />
 </svg>
