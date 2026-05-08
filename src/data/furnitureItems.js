@@ -55,24 +55,20 @@ const furnitureItems = {
     color: "#f97316",
     image: sofaImage,
     render: {
-      anchor: "surface-center",
+      anchor: "sprite-floor",
       scale: {
-        x: 1.04,
-        y: 0.62,
-      },
-      size: {
-        x: 1,
-        y: 1,
+        x: 0.96,
+        y: 1.18,
       },
       offset: {
         x: 0,
-        y: 10,
+        y: 2,
       },
       shadow: {
         scale: 0.92,
       },
       lift: {
-        scale: 0.16,
+        scale: 0.4,
         offset: 0,
       },
     },

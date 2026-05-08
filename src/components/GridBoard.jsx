@@ -19,11 +19,16 @@ function getTileStyle(index, gridSize, originX, findObjectAtTile, previewTiles) 
   const placedObject = findObjectAtTile(index);
   const isPlaced = !!placedObject;
   const isPreview = previewTiles.includes(index);
+  const hidesPlacedFootprint =
+    placedObject?.item?.render?.anchor === "sprite-floor";
+  const tileBackground = hidesPlacedFootprint
+    ? "#6f7f5d"
+    : placedObject?.item?.color;
 
   return {
     left: point.x - TILE_WIDTH / 2,
     top: point.y,
-    background: isPlaced ? placedObject.item.color : isPreview ? "#94a3b8" : "#6f7f5d",
+    background: isPlaced ? tileBackground : isPreview ? "#94a3b8" : "#6f7f5d",
     opacity: isPreview ? 0.7 : 1,
   };
 }
@@ -211,6 +216,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const liftConfig = render.lift || {};
   const anchorMode = render.anchor || "bottom-center";
   const isSurfaceCentered = anchorMode === "surface-center";
+  const isSpriteFloor = anchorMode === "sprite-floor";
   const footprint = getFootprintMetrics(index, item, gridSize, originX);
   const liftScale = liftConfig.scale || 1;
   const liftOffset = liftConfig.offset || 0;
@@ -236,13 +242,15 @@ function getObjectOverlay(placedObject, gridSize, originX) {
     footprint.height,
     Math.max(footprint.height * 0.4, footprint.height * sizeY)
   );
-  const imageWidth = isSurfaceCentered ? surfaceWidth : uprightWidth;
-  const imageHeight = isSurfaceCentered ? surfaceHeight : uprightHeight;
+  const imageWidth =
+    isSurfaceCentered ? surfaceWidth : uprightWidth;
+  const imageHeight =
+    isSurfaceCentered ? surfaceHeight : uprightHeight;
   const shadowWidth = footprint.width * 0.76 * shadowScale;
   const anchorX =
-    isSurfaceCentered ? footprint.surfaceX : footprint.centerX;
+    isSurfaceCentered || isSpriteFloor ? footprint.surfaceX : footprint.centerX;
   const anchorY =
-    isSurfaceCentered ? footprint.surfaceY : footprint.floorY;
+    isSurfaceCentered || isSpriteFloor ? footprint.surfaceY : footprint.floorY;
   const shadowCenterX = anchorX + offsetX;
   const shadowCenterY =
     anchorY - TILE_HEIGHT * 0.28 + Math.max(10, footprint.height * 0.55) / 2;
