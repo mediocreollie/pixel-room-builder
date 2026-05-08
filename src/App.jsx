@@ -201,6 +201,11 @@ function App() {
     setSelectedFile(file);
     setLatestSourceFile(file);
     setUploadMessage("");
+    setLatestDiagnosis(null);
+    setOverrideFootprint(AUTO_OVERRIDE_VALUE);
+    setOverrideAnchor(AUTO_OVERRIDE_VALUE);
+    setLatestGeneratedItemKey("");
+    setLatestGeneratedBaseItem(null);
   }
 
   useEffect(() => {
@@ -306,6 +311,15 @@ function App() {
     setIsCreatingItem(true);
     setUploadMessage("");
     setLatestSourceFile(sourceFile);
+    const overrideState = latestDiagnosis?.available
+      ? {
+          footprint: overrideFootprint,
+          anchor: overrideAnchor,
+        }
+      : {
+          footprint: AUTO_OVERRIDE_VALUE,
+          anchor: AUTO_OVERRIDE_VALUE,
+        };
 
     const createdItemCount = Object.keys(items).filter((itemKey) =>
       itemKey.startsWith("uploaded-item-")
@@ -331,8 +345,8 @@ function App() {
           };
           setUploadMessage("AI-generated item created.");
           setLatestDiagnosis(diagnosisState);
-          setOverrideFootprint(AUTO_OVERRIDE_VALUE);
-          setOverrideAnchor(AUTO_OVERRIDE_VALUE);
+          setOverrideFootprint(overrideState.footprint);
+          setOverrideAnchor(overrideState.anchor);
           setLatestGeneratedItemKey(nextItemKey);
           setLatestGeneratedBaseItem(generationResult.item);
         } catch (error) {
@@ -376,8 +390,8 @@ function App() {
       const finalItem =
         isRealGenerationEnabled() && generationResult.diagnosis
           ? applyGeneratedOverrides(generationResult.item, {
-              footprint: overrideFootprint,
-              anchor: overrideAnchor,
+              footprint: overrideState.footprint,
+              anchor: overrideState.anchor,
             })
           : generationResult.item;
 
@@ -391,10 +405,7 @@ function App() {
         item: finalItem,
         baseItem: generationResult.item,
         diagnosisState,
-        overrideState: {
-          footprint: overrideFootprint,
-          anchor: overrideAnchor,
-        },
+        overrideState,
         sourceFileName: sourceFile.name,
       });
 
