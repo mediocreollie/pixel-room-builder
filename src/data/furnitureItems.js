@@ -11,13 +11,14 @@ const furnitureItems = {
     color: "#22c55e",
     image: chairImage,
     render: {
+      anchor: "surface-center",
       scale: {
         x: 0.72,
         y: 1.05,
       },
       offset: {
         x: 0,
-        y: -4,
+        y: 0,
       },
       shadow: {
         scale: 0.7,
