@@ -57,18 +57,18 @@ const furnitureItems = {
     render: {
       anchor: "sprite-floor",
       scale: {
-        x: 0.96,
-        y: 1.18,
+        x: 1.14,
+        y: 1.28,
       },
       offset: {
         x: 0,
-        y: 2,
+        y: 8,
       },
       shadow: {
         scale: 0.92,
       },
       lift: {
-        scale: 0.4,
+        scale: 0.3,
         offset: 0,
       },
     },
