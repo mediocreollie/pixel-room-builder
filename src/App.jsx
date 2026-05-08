@@ -17,13 +17,42 @@ function isUploadedItem(item) {
   return item.id?.startsWith("uploaded-item-");
 }
 
-function getSavedPlacedObjects() {
+function hydratePlacedObject(savedObject, itemCatalog) {
+  const itemId = savedObject.itemId ?? savedObject.item?.id;
+  const position = savedObject.position ?? savedObject.index;
+
+  if (!itemId || typeof position !== "number") {
+    return null;
+  }
+
+  const item = itemCatalog[itemId];
+
+  if (!item || isUploadedItem(item)) {
+    return null;
+  }
+
+  return {
+    id: savedObject.id ?? `${itemId}-${position}`,
+    index: position,
+    item,
+  };
+}
+
+function getSavedPlacedObjects(itemCatalog) {
   const savedPlacedObjects = localStorage.getItem(PLACED_OBJECTS_STORAGE_KEY);
 
   if (!savedPlacedObjects) return [];
 
   try {
-    return JSON.parse(savedPlacedObjects);
+    const parsedPlacedObjects = JSON.parse(savedPlacedObjects);
+
+    if (!Array.isArray(parsedPlacedObjects)) {
+      return [];
+    }
+
+    return parsedPlacedObjects
+      .map((savedObject) => hydratePlacedObject(savedObject, itemCatalog))
+      .filter(Boolean);
   } catch {
     return [];
   }
@@ -33,7 +62,9 @@ function App() {
   const gridSize = 8;
 
   const [items, setItems] = useState(initialItems);
-  const [placedObjects, setPlacedObjects] = useState(getSavedPlacedObjects);
+  const [placedObjects, setPlacedObjects] = useState(() =>
+    getSavedPlacedObjects(initialItems)
+  );
   const [selectedItem, setSelectedItem] = useState("table");
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [mode, setMode] = useState("place");
@@ -49,7 +80,13 @@ function App() {
 
     localStorage.setItem(
       PLACED_OBJECTS_STORAGE_KEY,
-      JSON.stringify(savedPlacedObjects)
+      JSON.stringify(
+        savedPlacedObjects.map((object) => ({
+          id: object.id ?? `${object.item.id}-${object.index}`,
+          itemId: object.item.id,
+          position: object.index,
+        }))
+      )
     );
   }, [placedObjects]);
 
@@ -64,6 +101,27 @@ function App() {
         ...uploadedItems,
       };
     });
+  }, [initialItems]);
+
+  useEffect(() => {
+    setPlacedObjects((currentPlacedObjects) =>
+      currentPlacedObjects.map((object) => {
+        if (isUploadedItem(object.item)) {
+          return object;
+        }
+
+        const currentItem = initialItems[object.item.id];
+
+        if (!currentItem) {
+          return object;
+        }
+
+        return {
+          ...object,
+          item: currentItem,
+        };
+      })
+    );
   }, [initialItems]);
 
   useEffect(() => {
@@ -142,7 +200,14 @@ function App() {
 
     if (doesOverlap(newTiles, placedObjects, gridSize)) return;
 
-    setPlacedObjects([...placedObjects, { index, item }]);
+    setPlacedObjects([
+      ...placedObjects,
+      {
+        id: `${item.id}-${index}-${Date.now()}`,
+        index,
+        item,
+      },
+    ]);
   }
 
   function getTileColor(index) {
