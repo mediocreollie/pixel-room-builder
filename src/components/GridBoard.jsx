@@ -119,10 +119,13 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const imageWidth = (footprint.width + widthBias) * scaleX + 12;
   const imageHeight = (footprint.height + lift) * scaleY;
   const shadowWidth = footprint.width * 0.76 * shadowScale;
-  const anchorX = footprint.surfaceX;
-  const anchorY = footprint.surfaceY;
+  const anchorX =
+    anchorMode === "surface-center" ? footprint.surfaceX : footprint.centerX;
+  const anchorY =
+    anchorMode === "surface-center" ? footprint.surfaceY : footprint.floorY;
   const shadowCenterX = anchorX + offsetX;
-  const shadowCenterY = anchorY - TILE_HEIGHT * 0.28 + Math.max(10, footprint.height * 0.55) / 2;
+  const shadowCenterY =
+    anchorY - TILE_HEIGHT * 0.28 + Math.max(10, footprint.height * 0.55) / 2;
   const imageTop =
     anchorMode === "surface-center"
       ? anchorY + offsetY
