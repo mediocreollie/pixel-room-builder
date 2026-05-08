@@ -32,13 +32,14 @@ const furnitureItems = {
     color: "#c084fc",
     image: coffeeTableImage,
     render: {
+      anchor: "surface-center",
       scale: {
         x: 0.92,
         y: 0.82,
       },
       offset: {
         x: 0,
-        y: 2,
+        y: 0,
       },
       shadow: {
         scale: 0.86,
