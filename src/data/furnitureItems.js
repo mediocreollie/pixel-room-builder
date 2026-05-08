@@ -60,6 +60,10 @@ const furnitureItems = {
         x: 1.04,
         y: 0.62,
       },
+      size: {
+        x: 1,
+        y: 1,
+      },
       offset: {
         x: 0,
         y: 10,

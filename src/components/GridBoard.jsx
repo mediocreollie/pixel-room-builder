@@ -205,6 +205,7 @@ function getObjectOverlay(placedObject, gridSize, originX) {
   const { index, item } = placedObject;
   const render = item.render || {};
   const scale = render.scale || {};
+  const size = render.size || {};
   const offset = render.offset || {};
   const shadow = render.shadow || {};
   const liftConfig = render.lift || {};
@@ -225,13 +226,15 @@ function getObjectOverlay(placedObject, gridSize, originX) {
       : Math.max(0, footprint.widthAxisSpan - footprint.depthAxisSpan);
   const uprightWidth = (footprint.width + widthBias) * scaleX + 12;
   const uprightHeight = (footprint.height + lift) * scaleY;
+  const sizeX = size.x || scaleX;
+  const sizeY = size.y || scaleY;
   const surfaceWidth = Math.min(
     footprint.width,
-    Math.max(footprint.width * 0.4, footprint.width * scaleX)
+    Math.max(footprint.width * 0.4, footprint.width * sizeX)
   );
   const surfaceHeight = Math.min(
     footprint.height,
-    Math.max(footprint.height * 0.4, footprint.height * scaleY)
+    Math.max(footprint.height * 0.4, footprint.height * sizeY)
   );
   const imageWidth = isSurfaceCentered ? surfaceWidth : uprightWidth;
   const imageHeight = isSurfaceCentered ? surfaceHeight : uprightHeight;
