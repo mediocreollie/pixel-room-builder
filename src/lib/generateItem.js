@@ -11,6 +11,27 @@ export function isRealGenerationEnabled() {
   return REAL_GENERATION_ENABLED;
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Could not read the uploaded image."));
+    };
+
+    reader.onerror = () => {
+      reject(reader.error || new Error("Could not read the uploaded image."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function createFakeGeneratedItem({ file, itemId, itemNumber }) {
   await wait(1200);
 
@@ -25,18 +46,18 @@ export async function createFakeGeneratedItem({ file, itemId, itemNumber }) {
 }
 
 export async function requestGeneratedItem({ file, itemId, itemNumber }) {
-  const formData = new FormData();
-  formData.append("image", file);
-  formData.append("itemId", itemId);
-  formData.append("itemNumber", String(itemNumber));
-  const searchParams = new URLSearchParams({
-    itemId,
-    itemNumber: String(itemNumber),
-  });
+  const imageDataUrl = await readFileAsDataUrl(file);
 
-  const response = await fetch(`/api/generate-item?${searchParams.toString()}`, {
+  const response = await fetch("/api/generate-item", {
     method: "POST",
-    body: formData,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      imageDataUrl,
+      itemId,
+      itemNumber,
+    }),
   });
 
   const payload = await response.json().catch(() => null);

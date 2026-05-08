@@ -1,4 +1,7 @@
-import { buildMockGenerateItemResponse } from "./generate-item-response.js";
+import {
+  generateFurnitureItem,
+  readJsonRequestBody,
+} from "./generate-item-service.js";
 
 export default async function handler(request, response) {
   if (request.method !== "POST") {
@@ -10,17 +13,23 @@ export default async function handler(request, response) {
 
   const contentType = request.headers["content-type"] || "";
 
-  if (!contentType.includes("multipart/form-data")) {
+  if (!contentType.includes("application/json")) {
     return response.status(400).json({
-      error: "Expected multipart/form-data with an image upload.",
+      error: "Expected application/json with an imageDataUrl payload.",
     });
   }
 
-  const itemId = request.body?.itemId;
-  const parsedItemNumber = Number.parseInt(request.body?.itemNumber ?? "1", 10);
-  const itemNumber = Number.isNaN(parsedItemNumber) ? 1 : parsedItemNumber;
+  try {
+    const payload = await readJsonRequestBody(request);
+    const generatedItem = await generateFurnitureItem(payload);
 
-  return response.status(200).json(
-    buildMockGenerateItemResponse({ itemId, itemNumber })
-  );
+    return response.status(200).json(generatedItem);
+  } catch (error) {
+    return response.status(500).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unable to generate an item image right now.",
+    });
+  }
 }

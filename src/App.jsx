@@ -172,7 +172,7 @@ function App() {
             itemId: nextItemKey,
             itemNumber,
           });
-          setUploadMessage("Mock backend item created.");
+          setUploadMessage("AI-generated item created.");
         } catch (error) {
           console.error("Falling back to fake item generation.", error);
           setUploadMessage("Backend request failed. Used local fallback instead.");
