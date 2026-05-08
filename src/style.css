@@ -502,6 +502,8 @@ button {
   position: absolute;
   display: block;
   filter: drop-shadow(0 8px 10px rgba(42, 28, 14, 0.18));
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
   object-fit: contain;
   object-position: center bottom;
   pointer-events: none;
