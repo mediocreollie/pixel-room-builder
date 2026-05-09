@@ -2,12 +2,12 @@ import { diagnoseWithOpenAi, generateWithOpenAi } from "./providers/openai-gener
 import { generateWithComfyUi } from "./providers/comfyui-generation.js";
 
 const ALLOWED_FOOTPRINTS = new Set(["1x1", "2x1", "1x2", "2x2", "3x1"]);
-const DEFAULT_PROVIDER = "openai";
+const DEFAULT_PROVIDER = "comfyui";
 
 const DEFAULT_DIAGNOSIS = {
-  objectType: "furniture",
+  objectType: "unknown",
   displayName: "Generated Item",
-  description: "single furniture object",
+  description: "Locally generated furniture sprite",
   footprint: {
     width: 1,
     height: 1,
@@ -15,7 +15,7 @@ const DEFAULT_DIAGNOSIS = {
   anchor: "upright",
   scaleGuidance: "standard upright object, should fit clearly within one tile",
   generationGuidance:
-    "preserve the main silhouette, simplify small details, and isolate the object on a transparent background",
+    "create a simple isometric pixel-art furniture item based on the uploaded image",
 };
 
 function readRequestStream(request) {
@@ -160,7 +160,25 @@ function getGenerationProvider() {
   return (process.env.GENERATION_PROVIDER || DEFAULT_PROVIDER).toLowerCase();
 }
 
-async function diagnoseFurnitureObject({ imageDataUrl, itemNumber }) {
+function hasOpenAiKey() {
+  return typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim();
+}
+
+function buildDefaultDiagnosis(itemNumber) {
+  return {
+    ...DEFAULT_DIAGNOSIS,
+    displayName: `Generated Item ${itemNumber}`,
+  };
+}
+
+async function diagnoseFurnitureObject({ imageDataUrl, itemNumber, generationProvider }) {
+  if (generationProvider === "comfyui" && !hasOpenAiKey()) {
+    console.info("[generation-service] skipping OpenAI diagnosis for ComfyUI mode", {
+      reason: "OPENAI_API_KEY is not configured",
+    });
+    return buildDefaultDiagnosis(itemNumber);
+  }
+
   return diagnoseWithOpenAi({
     imageDataUrl,
     itemNumber,
@@ -216,19 +234,23 @@ export async function generateFurnitureItem(payload) {
 
   let diagnosis = DEFAULT_DIAGNOSIS;
   let diagnosisFallback = false;
+  let diagnosisSource = "openai";
 
   try {
     diagnosis = await diagnoseFurnitureObject({
       imageDataUrl,
       itemNumber,
+      generationProvider,
     });
   } catch (error) {
     diagnosisFallback = true;
+    diagnosisSource = "local-default";
     console.warn("Falling back to default diagnosis metadata.", error);
-    diagnosis = {
-      ...DEFAULT_DIAGNOSIS,
-      displayName: `Generated Item ${itemNumber}`,
-    };
+    diagnosis = buildDefaultDiagnosis(itemNumber);
+  }
+
+  if (generationProvider === "comfyui" && !hasOpenAiKey()) {
+    diagnosisSource = "local-default";
   }
 
   const generationResult = await generateWithSelectedProvider({
@@ -254,6 +276,7 @@ export async function generateFurnitureItem(payload) {
     meta: {
       source: generationResult.provider,
       model: generationResult.model,
+      diagnosisSource,
       diagnosisFallback,
       fallbackReason: generationResult.fallbackReason,
       imageDiagnostics: generationResult.diagnostics,
