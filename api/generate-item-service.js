@@ -1,9 +1,8 @@
-const DEFAULT_RESPONSE_MODEL = "gpt-5";
-const DEFAULT_DIAGNOSIS_MODEL = "gpt-5";
-const DEFAULT_IMAGE_SIZE = "1024x1024";
-const DEFAULT_IMAGE_QUALITY = "medium";
-const DEFAULT_IMAGE_FORMAT = "png";
+import { diagnoseWithOpenAi, generateWithOpenAi } from "./providers/openai-generation.js";
+import { generateWithComfyUi } from "./providers/comfyui-generation.js";
+
 const ALLOWED_FOOTPRINTS = new Set(["1x1", "2x1", "1x2", "2x2", "3x1"]);
+const DEFAULT_PROVIDER = "openai";
 
 const DEFAULT_DIAGNOSIS = {
   objectType: "furniture",
@@ -74,50 +73,6 @@ export function validateGenerateItemPayload(payload) {
     itemId,
     itemNumber,
   };
-}
-
-function getApiKey() {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured on the backend.");
-  }
-
-  return apiKey;
-}
-
-function parseJsonObject(text) {
-  if (!text || typeof text !== "string") {
-    throw new Error("Diagnosis response was empty.");
-  }
-
-  const startIndex = text.indexOf("{");
-  const endIndex = text.lastIndexOf("}");
-
-  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
-    throw new Error("Diagnosis response did not contain a JSON object.");
-  }
-
-  return JSON.parse(text.slice(startIndex, endIndex + 1));
-}
-
-function extractOutputText(responsePayload) {
-  if (typeof responsePayload?.output_text === "string" && responsePayload.output_text) {
-    return responsePayload.output_text;
-  }
-
-  const message = responsePayload?.output?.find?.(
-    (outputItem) => outputItem.type === "message"
-  );
-  const textContent = message?.content?.find?.(
-    (contentItem) => contentItem.type === "output_text"
-  );
-
-  if (typeof textContent?.text === "string" && textContent.text) {
-    return textContent.text;
-  }
-
-  throw new Error("OpenAI response did not include diagnosis text.");
 }
 
 function normalizeFootprint(footprint) {
@@ -201,109 +156,52 @@ function buildGenerationPrompt(diagnosis) {
   ].join(" ");
 }
 
-function extractGeneratedImage(responsePayload) {
-  const imageCall = responsePayload?.output?.find?.(
-    (outputItem) => outputItem.type === "image_generation_call"
-  );
-
-  if (!imageCall?.result) {
-    throw new Error("OpenAI response did not include a generated image.");
-  }
-
-  return imageCall.result;
-}
-
-async function postOpenAiJson(body) {
-  const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getApiKey()}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const responsePayload = await openAiResponse.json().catch(() => null);
-
-  if (!openAiResponse.ok) {
-    const errorMessage =
-      responsePayload?.error?.message ||
-      responsePayload?.error ||
-      "OpenAI request failed.";
-    throw new Error(errorMessage);
-  }
-
-  return responsePayload;
+function getGenerationProvider() {
+  return (process.env.GENERATION_PROVIDER || DEFAULT_PROVIDER).toLowerCase();
 }
 
 async function diagnoseFurnitureObject({ imageDataUrl, itemNumber }) {
-  const responsePayload = await postOpenAiJson({
-    model: process.env.OPENAI_DIAGNOSIS_MODEL || DEFAULT_DIAGNOSIS_MODEL,
-    input: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: buildDiagnosisPrompt(),
-          },
-          {
-            type: "input_image",
-            image_url: imageDataUrl,
-            detail: "high",
-          },
-        ],
-      },
-    ],
+  return diagnoseWithOpenAi({
+    imageDataUrl,
+    itemNumber,
+    diagnosisPrompt: buildDiagnosisPrompt(),
+    normalizeDiagnosis,
   });
-
-  const diagnosisText = extractOutputText(responsePayload);
-  const parsedDiagnosis = parseJsonObject(diagnosisText);
-
-  return normalizeDiagnosis(parsedDiagnosis, itemNumber);
 }
 
-async function callOpenAiImageGeneration({ imageDataUrl, diagnosis }) {
-  const responseModel =
-    process.env.OPENAI_RESPONSE_MODEL || DEFAULT_RESPONSE_MODEL;
+async function generateWithSelectedProvider({ imageDataUrl, diagnosis }) {
+  const generationPrompt = buildGenerationPrompt(diagnosis);
+  const provider = getGenerationProvider();
 
-  const responsePayload = await postOpenAiJson({
-    model: responseModel,
-    input: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: buildGenerationPrompt(diagnosis),
-          },
-          {
-            type: "input_image",
-            image_url: imageDataUrl,
-            detail: "high",
-          },
-        ],
-      },
-    ],
-    tools: [
-      {
-        type: "image_generation",
-        background: "transparent",
-        quality: process.env.OPENAI_IMAGE_QUALITY || DEFAULT_IMAGE_QUALITY,
-        size: process.env.OPENAI_IMAGE_SIZE || DEFAULT_IMAGE_SIZE,
-        output_format:
-          process.env.OPENAI_IMAGE_OUTPUT_FORMAT || DEFAULT_IMAGE_FORMAT,
-      },
-    ],
-    tool_choice: {
-      type: "image_generation",
-    },
+  if (provider === "comfyui") {
+    try {
+      return await generateWithComfyUi({
+        imageDataUrl,
+        diagnosis,
+        generationPrompt,
+      });
+    } catch (error) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw error;
+      }
+
+      const fallbackResult = await generateWithOpenAi({
+        imageDataUrl,
+        generationPrompt,
+      });
+
+      return {
+        ...fallbackResult,
+        provider: "openai-fallback",
+        fallbackReason: error instanceof Error ? error.message : "ComfyUI failed.",
+      };
+    }
+  }
+
+  return generateWithOpenAi({
+    imageDataUrl,
+    generationPrompt,
   });
-
-  return {
-    imageBase64: extractGeneratedImage(responsePayload),
-    model: responseModel,
-  };
 }
 
 export async function generateFurnitureItem(payload) {
@@ -326,7 +224,7 @@ export async function generateFurnitureItem(payload) {
     };
   }
 
-  const { imageBase64, model } = await callOpenAiImageGeneration({
+  const generationResult = await generateWithSelectedProvider({
     imageDataUrl,
     diagnosis,
   });
@@ -334,14 +232,15 @@ export async function generateFurnitureItem(payload) {
   return {
     item: {
       id: itemId || `uploaded-item-${Date.now()}`,
-      image: `data:image/png;base64,${imageBase64}`,
+      image: `data:image/png;base64,${generationResult.imageBase64}`,
       color: "#38bdf8",
     },
     diagnosis,
     meta: {
-      source: "openai-image-generation",
-      model,
+      source: generationResult.provider,
+      model: generationResult.model,
       diagnosisFallback,
+      fallbackReason: generationResult.fallbackReason,
     },
   };
 }
