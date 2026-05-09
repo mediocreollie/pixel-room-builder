@@ -113,6 +113,15 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
     throw new Error("Generation response did not include an item image.");
   }
 
+  console.info("[generation] image diagnostics", {
+    mimeType: payload?.meta?.mimeType,
+    startsWithPngBase64:
+      typeof payload?.item?.image === "string" &&
+      payload.item.image.startsWith("data:image/png;base64,"),
+    provider: payload?.meta?.source,
+    backendImageDiagnostics: payload?.meta?.imageDiagnostics,
+  });
+
   return {
     item: buildGeneratedItemFromMetadata({
       payload,

@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { PNG } from "pngjs";
 
 const DEFAULT_COMFYUI_BASE_URL = "http://127.0.0.1:8188";
 const DEFAULT_WORKFLOW_PATH = "./api/comfyui-workflows/furniture-txt2img.json";
@@ -8,6 +9,8 @@ const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_NEGATIVE_PROMPT =
   "blurry, low quality, photo, realistic, text, watermark, room background, floor, frame, cropped, duplicate object";
 const WORKFLOW_PLACEHOLDER_CHECKPOINT = "PUT_CHECKPOINT_NAME_HERE";
+const WHITE_BACKGROUND_THRESHOLD = 242;
+const CROPPING_PADDING = 2;
 
 function getComfyUiBaseUrl() {
   return (process.env.COMFYUI_BASE_URL || DEFAULT_COMFYUI_BASE_URL).replace(/\/+$/, "");
@@ -215,8 +218,183 @@ async function fetchGeneratedImageAsBase64(imageInfo) {
     throw new Error("ComfyUI generated an image, but /view did not return it.");
   }
 
+  const contentType = response.headers.get("content-type") || "unknown";
   const imageBuffer = Buffer.from(await response.arrayBuffer());
-  return imageBuffer.toString("base64");
+  const processedImage = processComfyUiImage(imageBuffer, contentType);
+
+  console.info("[comfyui] image diagnostics", {
+    mimeType: contentType,
+    hadAlpha: processedImage.hadAlpha,
+    hasAlphaAfterCleanup: processedImage.hasAlphaAfterCleanup,
+    originalWidth: processedImage.originalWidth,
+    originalHeight: processedImage.originalHeight,
+    croppedWidth: processedImage.croppedWidth,
+    croppedHeight: processedImage.croppedHeight,
+  });
+
+  return {
+    imageBase64: processedImage.buffer.toString("base64"),
+    mimeType: contentType,
+    diagnostics: {
+      mimeType: contentType,
+      hadAlpha: processedImage.hadAlpha,
+      hasAlphaAfterCleanup: processedImage.hasAlphaAfterCleanup,
+      originalWidth: processedImage.originalWidth,
+      originalHeight: processedImage.originalHeight,
+      croppedWidth: processedImage.croppedWidth,
+      croppedHeight: processedImage.croppedHeight,
+    },
+  };
+}
+
+function hasAlphaChannel(png) {
+  for (let index = 3; index < png.data.length; index += 4) {
+    if (png.data[index] < 250) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isNearWhitePixel(png, x, y) {
+  const pixelIndex = (png.width * y + x) * 4;
+  const red = png.data[pixelIndex];
+  const green = png.data[pixelIndex + 1];
+  const blue = png.data[pixelIndex + 2];
+  const alpha = png.data[pixelIndex + 3];
+
+  return (
+    alpha > 245 &&
+    red >= WHITE_BACKGROUND_THRESHOLD &&
+    green >= WHITE_BACKGROUND_THRESHOLD &&
+    blue >= WHITE_BACKGROUND_THRESHOLD
+  );
+}
+
+function removeBorderConnectedWhiteBackground(png) {
+  const visited = new Uint8Array(png.width * png.height);
+  const queue = [];
+
+  function visit(x, y) {
+    if (x < 0 || y < 0 || x >= png.width || y >= png.height) {
+      return;
+    }
+
+    const visitIndex = y * png.width + x;
+
+    if (visited[visitIndex] === 1 || !isNearWhitePixel(png, x, y)) {
+      return;
+    }
+
+    visited[visitIndex] = 1;
+    queue.push([x, y]);
+  }
+
+  for (let x = 0; x < png.width; x += 1) {
+    visit(x, 0);
+    visit(x, png.height - 1);
+  }
+
+  for (let y = 0; y < png.height; y += 1) {
+    visit(0, y);
+    visit(png.width - 1, y);
+  }
+
+  while (queue.length > 0) {
+    const [x, y] = queue.shift();
+    const pixelIndex = (png.width * y + x) * 4;
+    png.data[pixelIndex + 3] = 0;
+
+    visit(x + 1, y);
+    visit(x - 1, y);
+    visit(x, y + 1);
+    visit(x, y - 1);
+  }
+}
+
+function cropTransparentBounds(png) {
+  let minX = png.width;
+  let minY = png.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      const pixelIndex = (png.width * y + x) * 4;
+      const alpha = png.data[pixelIndex + 3];
+
+      if (alpha === 0) {
+        continue;
+      }
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX === -1 || maxY === -1) {
+    return png;
+  }
+
+  minX = Math.max(0, minX - CROPPING_PADDING);
+  minY = Math.max(0, minY - CROPPING_PADDING);
+  maxX = Math.min(png.width - 1, maxX + CROPPING_PADDING);
+  maxY = Math.min(png.height - 1, maxY + CROPPING_PADDING);
+
+  const croppedWidth = maxX - minX + 1;
+  const croppedHeight = maxY - minY + 1;
+  const cropped = new PNG({ width: croppedWidth, height: croppedHeight });
+
+  PNG.bitblt(
+    png,
+    cropped,
+    minX,
+    minY,
+    croppedWidth,
+    croppedHeight,
+    0,
+    0
+  );
+
+  return cropped;
+}
+
+function processComfyUiImage(imageBuffer, mimeType) {
+  if (!mimeType.includes("png")) {
+    return {
+      buffer: imageBuffer,
+      hadAlpha: false,
+      hasAlphaAfterCleanup: false,
+      originalWidth: 0,
+      originalHeight: 0,
+      croppedWidth: 0,
+      croppedHeight: 0,
+    };
+  }
+
+  const parsed = PNG.sync.read(imageBuffer);
+  const hadAlpha = hasAlphaChannel(parsed);
+
+  if (!hadAlpha) {
+    removeBorderConnectedWhiteBackground(parsed);
+  }
+
+  const cropped = cropTransparentBounds(parsed);
+  const hasAlphaAfterCleanup = hasAlphaChannel(cropped);
+  const encoded = PNG.sync.write(cropped);
+
+  return {
+    buffer: encoded,
+    hadAlpha,
+    hasAlphaAfterCleanup,
+    originalWidth: parsed.width,
+    originalHeight: parsed.height,
+    croppedWidth: cropped.width,
+    croppedHeight: cropped.height,
+  };
 }
 
 async function waitForPromptCompletion(promptId) {
@@ -304,11 +482,13 @@ export async function generateWithComfyUi({
   }
 
   const imageInfo = await waitForPromptCompletion(promptId);
-  const imageBase64 = await fetchGeneratedImageAsBase64(imageInfo);
+  const { imageBase64, mimeType, diagnostics } = await fetchGeneratedImageAsBase64(imageInfo);
 
   return {
     imageBase64,
     provider: "comfyui",
     model: "local-comfyui-txt2img",
+    mimeType,
+    diagnostics,
   };
 }

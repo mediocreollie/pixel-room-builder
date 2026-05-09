@@ -241,6 +241,8 @@ export async function generateFurnitureItem(payload) {
       model: generationResult.model,
       diagnosisFallback,
       fallbackReason: generationResult.fallbackReason,
+      imageDiagnostics: generationResult.diagnostics,
+      mimeType: generationResult.mimeType,
     },
   };
 }
