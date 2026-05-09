@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PNG } from "pngjs";
 
 const DEFAULT_COMFYUI_BASE_URL = "http://127.0.0.1:8188";
-const DEFAULT_WORKFLOW_PATH = "./api/comfyui-workflows/furniture-txt2img.json";
+const DEFAULT_TXT2IMG_WORKFLOW_PATH = "./api/comfyui-workflows/furniture-txt2img.json";
+const DEFAULT_IMG2IMG_WORKFLOW_PATH = "./api/comfyui-workflows/furniture-img2img.json";
+const DEFAULT_WORKFLOW_MODE = "txt2img";
 const DEFAULT_TIMEOUT_MS = 600000;
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_NEGATIVE_PROMPT =
@@ -11,13 +12,24 @@ const DEFAULT_NEGATIVE_PROMPT =
 const WORKFLOW_PLACEHOLDER_CHECKPOINT = "PUT_CHECKPOINT_NAME_HERE";
 const WHITE_BACKGROUND_THRESHOLD = 242;
 const CROPPING_PADDING = 2;
+const DEFAULT_DENOISE = 0.45;
+const COMFYUI_UPLOAD_FILENAME = "uploaded-furniture-source";
+let pngModulePromise = null;
 
 function getComfyUiBaseUrl() {
   return (process.env.COMFYUI_BASE_URL || DEFAULT_COMFYUI_BASE_URL).replace(/\/+$/, "");
 }
 
-function getWorkflowPath() {
-  return process.env.COMFYUI_WORKFLOW_PATH || DEFAULT_WORKFLOW_PATH;
+function getTxt2ImgWorkflowPath() {
+  return process.env.COMFYUI_WORKFLOW_PATH || DEFAULT_TXT2IMG_WORKFLOW_PATH;
+}
+
+function getImg2ImgWorkflowPath() {
+  return process.env.COMFYUI_IMG2IMG_WORKFLOW_PATH || DEFAULT_IMG2IMG_WORKFLOW_PATH;
+}
+
+function getWorkflowMode() {
+  return (process.env.COMFYUI_WORKFLOW_MODE || DEFAULT_WORKFLOW_MODE).toLowerCase();
 }
 
 function getTimeoutMs() {
@@ -38,14 +50,39 @@ function getCheckpointName() {
   return process.env.COMFYUI_CHECKPOINT_NAME || WORKFLOW_PLACEHOLDER_CHECKPOINT;
 }
 
+function getDenoiseValue() {
+  const parsed = Number.parseFloat(process.env.COMFYUI_DENOISE || String(DEFAULT_DENOISE));
+
+  if (Number.isNaN(parsed)) {
+    return DEFAULT_DENOISE;
+  }
+
+  return Math.min(1, Math.max(0, parsed));
+}
+
 function sleep(milliseconds) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
 }
 
-async function readWorkflowFile() {
-  const workflowPath = path.resolve(process.cwd(), getWorkflowPath());
+async function loadPngModule() {
+  if (!pngModulePromise) {
+    pngModulePromise = import("pngjs")
+      .then((module) => module.PNG || module.default?.PNG || module.default)
+      .catch((error) => {
+        console.warn("[comfyui] png cleanup disabled", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      });
+  }
+
+  return pngModulePromise;
+}
+
+async function readWorkflowFile(workflowPathValue) {
+  const workflowPath = path.resolve(process.cwd(), workflowPathValue);
 
   try {
     const workflowContents = await fs.readFile(workflowPath, "utf8");
@@ -69,67 +106,6 @@ async function readWorkflowFile() {
   }
 }
 
-function applyTextToNodeByTitle(workflow, titleIncludes, textValue) {
-  for (const node of Object.values(workflow)) {
-    if (
-      node &&
-      node.class_type === "CLIPTextEncode" &&
-      typeof node._meta?.title === "string" &&
-      node._meta.title.toLowerCase().includes(titleIncludes)
-    ) {
-      node.inputs = {
-        ...(node.inputs || {}),
-        text: textValue,
-      };
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function applyCheckpoint(workflow, checkpointName) {
-  for (const node of Object.values(workflow)) {
-    if (node?.class_type === "CheckpointLoaderSimple") {
-      node.inputs = {
-        ...(node.inputs || {}),
-        ckpt_name: checkpointName,
-      };
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function applySeed(workflow, seed) {
-  for (const node of Object.values(workflow)) {
-    if (node?.class_type === "KSampler") {
-      node.inputs = {
-        ...(node.inputs || {}),
-        seed,
-      };
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function applySavePrefix(workflow, prefix) {
-  for (const node of Object.values(workflow)) {
-    if (node?.class_type === "SaveImage") {
-      node.inputs = {
-        ...(node.inputs || {}),
-        filename_prefix: prefix,
-      };
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function buildNegativePrompt() {
   return process.env.COMFYUI_NEGATIVE_PROMPT || DEFAULT_NEGATIVE_PROMPT;
 }
@@ -140,6 +116,7 @@ function buildPositivePrompt(generationPrompt) {
     "Cozy simulation game asset.",
     "Transparent background.",
     "Single isolated object only.",
+    "Preserve the main silhouette from the uploaded reference image.",
   ].join(" ");
 }
 
@@ -216,6 +193,75 @@ async function getJson(url, errorPrefix) {
   return payload;
 }
 
+function parseDataUrl(imageDataUrl) {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl);
+
+  if (!match) {
+    throw new Error("Expected a base64 image data URL for ComfyUI upload.");
+  }
+
+  const mimeType = match[1];
+  const base64Payload = match[2];
+  const extension = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "png";
+
+  return {
+    mimeType,
+    extension,
+    buffer: Buffer.from(base64Payload, "base64"),
+  };
+}
+
+async function uploadSourceImageToComfyUi(imageDataUrl) {
+  const { mimeType, extension, buffer } = parseDataUrl(imageDataUrl);
+  const baseUrl = getComfyUiBaseUrl();
+  const formData = new FormData();
+  const filename = `${COMFYUI_UPLOAD_FILENAME}.${extension}`;
+
+  formData.append(
+    "image",
+    new Blob([buffer], {
+      type: mimeType,
+    }),
+    filename
+  );
+  formData.append("type", "input");
+  formData.append("overwrite", "true");
+
+  let response;
+
+  try {
+    response = await fetch(`${baseUrl}/upload/image`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    throw new Error("ComfyUI source image upload failed because the server is unreachable.");
+  }
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || payload?.error || "ComfyUI source image upload failed.");
+  }
+
+  const uploadedName = payload?.name || payload?.filename || filename;
+  const uploadedSubfolder = payload?.subfolder || "";
+  const uploadedType = payload?.type || "input";
+
+  console.info("[comfyui] source image uploaded", {
+    uploadedName,
+    uploadedSubfolder,
+    uploadedType,
+    mimeType,
+  });
+
+  return {
+    name: uploadedName,
+    subfolder: uploadedSubfolder,
+    type: uploadedType,
+  };
+}
+
 function findOutputImage(historyPayload, promptId) {
   const promptHistory = historyPayload?.[promptId];
   const outputs = promptHistory?.outputs;
@@ -257,7 +303,7 @@ async function fetchGeneratedImageAsBase64(imageInfo) {
 
   const contentType = response.headers.get("content-type") || "unknown";
   const imageBuffer = Buffer.from(await response.arrayBuffer());
-  const processedImage = processComfyUiImage(imageBuffer, contentType);
+  const processedImage = await processComfyUiImage(imageBuffer, contentType);
 
   console.info("[comfyui] image diagnostics", {
     mimeType: contentType,
@@ -350,7 +396,7 @@ function removeBorderConnectedWhiteBackground(png) {
   }
 }
 
-function cropTransparentBounds(png) {
+function cropTransparentBounds(PNG, png) {
   let minX = png.width;
   let minY = png.height;
   let maxX = -1;
@@ -399,8 +445,22 @@ function cropTransparentBounds(png) {
   return cropped;
 }
 
-function processComfyUiImage(imageBuffer, mimeType) {
+async function processComfyUiImage(imageBuffer, mimeType) {
   if (!mimeType.includes("png")) {
+    return {
+      buffer: imageBuffer,
+      hadAlpha: false,
+      hasAlphaAfterCleanup: false,
+      originalWidth: 0,
+      originalHeight: 0,
+      croppedWidth: 0,
+      croppedHeight: 0,
+    };
+  }
+
+  const PNG = await loadPngModule();
+
+  if (!PNG) {
     return {
       buffer: imageBuffer,
       hadAlpha: false,
@@ -419,7 +479,7 @@ function processComfyUiImage(imageBuffer, mimeType) {
     removeBorderConnectedWhiteBackground(parsed);
   }
 
-  const cropped = cropTransparentBounds(parsed);
+  const cropped = cropTransparentBounds(PNG, parsed);
   const hasAlphaAfterCleanup = hasAlphaChannel(cropped);
   const encoded = PNG.sync.write(cropped);
 
@@ -442,6 +502,118 @@ function findNodeIdByMatcher(workflow, matcher) {
   }
 
   return null;
+}
+
+function findTextNodeIds(workflow) {
+  const clipNodes = Object.entries(workflow).filter(([, node]) => node?.class_type === "CLIPTextEncode");
+  const positiveNodeId =
+    findNodeIdByMatcher(
+      workflow,
+      (node) =>
+        node?.class_type === "CLIPTextEncode" &&
+        typeof node._meta?.title === "string" &&
+        node._meta.title.toLowerCase().includes("positive")
+    ) ||
+    clipNodes[0]?.[0] ||
+    null;
+  const negativeNodeId =
+    findNodeIdByMatcher(
+      workflow,
+      (node) =>
+        node?.class_type === "CLIPTextEncode" &&
+        typeof node._meta?.title === "string" &&
+        node._meta.title.toLowerCase().includes("negative")
+    ) ||
+    clipNodes[1]?.[0] ||
+    null;
+
+  return {
+    positiveNodeId,
+    negativeNodeId,
+  };
+}
+
+function applyTextToNodeById(workflow, nodeId, textValue) {
+  if (!nodeId || !workflow[nodeId]) {
+    return false;
+  }
+
+  workflow[nodeId].inputs = {
+    ...(workflow[nodeId].inputs || {}),
+    text: textValue,
+  };
+
+  return true;
+}
+
+function applyCheckpoint(workflow, checkpointName) {
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "CheckpointLoaderSimple") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        ckpt_name: checkpointName,
+      };
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function applySeed(workflow, seed) {
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "KSampler") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        seed,
+      };
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function applySavePrefix(workflow, prefix) {
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "SaveImage") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        filename_prefix: prefix,
+      };
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function applyDenoise(workflow, denoiseValue) {
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "KSampler") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        denoise: denoiseValue,
+      };
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function applyLoadImage(workflow, uploadedImage) {
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "LoadImage") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        image: uploadedImage.name,
+      };
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function waitForPromptCompletion(promptId) {
@@ -467,7 +639,7 @@ async function waitForPromptCompletion(promptId) {
   throw new Error("Timed out waiting for ComfyUI to finish generation.");
 }
 
-function prepareWorkflow(workflow, generationPrompt) {
+function validateApiWorkflow(workflow) {
   if (workflow?.nodes && Array.isArray(workflow.nodes)) {
     throw new Error("ComfyUI workflow must be exported in API format");
   }
@@ -475,42 +647,31 @@ function prepareWorkflow(workflow, generationPrompt) {
   if (!workflow || Array.isArray(workflow) || typeof workflow !== "object") {
     throw new Error("ComfyUI workflow file is not a valid API-format workflow object.");
   }
+}
+
+function prepareWorkflow(workflow, generationPrompt, options = {}) {
+  validateApiWorkflow(workflow);
 
   const checkpointName = getCheckpointName();
 
   if (checkpointName === WORKFLOW_PLACEHOLDER_CHECKPOINT) {
     throw new Error(
-      "COMFYUI_CHECKPOINT_NAME is required for the starter txt2img workflow."
+      "COMFYUI_CHECKPOINT_NAME is required for the starter ComfyUI workflows."
     );
   }
 
-  const positiveApplied = applyTextToNodeByTitle(
+  const { positiveNodeId, negativeNodeId } = findTextNodeIds(workflow);
+  const positiveApplied = applyTextToNodeById(
     workflow,
-    "positive",
+    positiveNodeId,
     buildPositivePrompt(generationPrompt)
   );
-  const negativeApplied = applyTextToNodeByTitle(
+  const negativeApplied = applyTextToNodeById(
     workflow,
-    "negative",
+    negativeNodeId,
     buildNegativePrompt()
   );
   const checkpointApplied = applyCheckpoint(workflow, checkpointName);
-  const positiveNodeId = findNodeIdByMatcher(
-    workflow,
-    (node) =>
-      node &&
-      node.class_type === "CLIPTextEncode" &&
-      typeof node._meta?.title === "string" &&
-      node._meta.title.toLowerCase().includes("positive")
-  );
-  const negativeNodeId = findNodeIdByMatcher(
-    workflow,
-    (node) =>
-      node &&
-      node.class_type === "CLIPTextEncode" &&
-      typeof node._meta?.title === "string" &&
-      node._meta.title.toLowerCase().includes("negative")
-  );
   const checkpointNodeId = findNodeIdByMatcher(
     workflow,
     (node) => node?.class_type === "CheckpointLoaderSimple"
@@ -520,11 +681,25 @@ function prepareWorkflow(workflow, generationPrompt) {
   applySeed(workflow, randomSeed());
   applySavePrefix(workflow, `furniture-${Date.now()}`);
 
+  if (options.mode === "img2img") {
+    const loadImageApplied = applyLoadImage(workflow, options.uploadedImage);
+    const denoiseApplied = applyDenoise(workflow, getDenoiseValue());
+
+    if (!loadImageApplied) {
+      throw new Error("ComfyUI img2img workflow is missing a LoadImage node.");
+    }
+
+    if (!denoiseApplied) {
+      throw new Error("ComfyUI img2img workflow is missing a KSampler node for denoise injection.");
+    }
+  }
+
   console.info("[comfyui] workflow patched", {
     nodeCount,
     positiveNodeId,
     negativeNodeId,
     checkpointNodeId,
+    workflowMode: options.mode || "txt2img",
   });
 
   if (!positiveApplied || !negativeApplied) {
@@ -542,16 +717,8 @@ function prepareWorkflow(workflow, generationPrompt) {
   return workflow;
 }
 
-export async function generateWithComfyUi({
-  generationPrompt,
-  // TODO: support image-to-image by uploading imageDataUrl and injecting it into a
-  // LoadImage + VAEEncode workflow once the local img2img graph is finalized.
-  imageDataUrl: _imageDataUrl,
-}) {
+async function queueWorkflow({ workflow, workflowPath }) {
   const baseUrl = getComfyUiBaseUrl();
-  await checkComfyUiHealth();
-  const { workflowPath, workflow: parsedWorkflow } = await readWorkflowFile();
-  const workflow = prepareWorkflow(parsedWorkflow, generationPrompt);
   console.info("[comfyui] starting prompt queue request", {
     baseUrl,
     workflowPath,
@@ -583,13 +750,73 @@ export async function generateWithComfyUi({
   });
 
   const imageInfo = await waitForPromptCompletion(promptId);
-  const { imageBase64, mimeType, diagnostics } = await fetchGeneratedImageAsBase64(imageInfo);
+  return fetchGeneratedImageAsBase64(imageInfo);
+}
+
+async function runTxt2ImgWorkflow(generationPrompt) {
+  const { workflowPath, workflow: parsedWorkflow } = await readWorkflowFile(getTxt2ImgWorkflowPath());
+  const workflow = prepareWorkflow(parsedWorkflow, generationPrompt, {
+    mode: "txt2img",
+  });
+  const result = await queueWorkflow({
+    workflow,
+    workflowPath,
+  });
 
   return {
-    imageBase64,
+    ...result,
     provider: "comfyui",
     model: "local-comfyui-txt2img",
-    mimeType,
-    diagnostics,
   };
+}
+
+async function runImg2ImgWorkflow({ imageDataUrl, generationPrompt }) {
+  const uploadedImage = await uploadSourceImageToComfyUi(imageDataUrl);
+  const { workflowPath, workflow: parsedWorkflow } = await readWorkflowFile(getImg2ImgWorkflowPath());
+  const workflow = prepareWorkflow(parsedWorkflow, generationPrompt, {
+    mode: "img2img",
+    uploadedImage,
+  });
+  const result = await queueWorkflow({
+    workflow,
+    workflowPath,
+  });
+
+  return {
+    ...result,
+    provider: "comfyui",
+    model: "local-comfyui-img2img",
+  };
+}
+
+export async function generateWithComfyUi({
+  generationPrompt,
+  imageDataUrl,
+}) {
+  await checkComfyUiHealth();
+
+  const workflowMode = getWorkflowMode();
+
+  if (workflowMode === "img2img") {
+    try {
+      return await runImg2ImgWorkflow({
+        imageDataUrl,
+        generationPrompt,
+      });
+    } catch (error) {
+      console.warn("[comfyui] img2img failed, falling back to txt2img", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      const txt2ImgResult = await runTxt2ImgWorkflow(generationPrompt);
+
+      return {
+        ...txt2ImgResult,
+        provider: "comfyui-txt2img-fallback",
+        fallbackReason: error instanceof Error ? error.message : "ComfyUI img2img failed.",
+      };
+    }
+  }
+
+  return runTxt2ImgWorkflow(generationPrompt);
 }
