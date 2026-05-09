@@ -14,6 +14,7 @@ const WHITE_BACKGROUND_THRESHOLD = 242;
 const CROPPING_PADDING = 2;
 const DEFAULT_DENOISE = 0.45;
 const COMFYUI_UPLOAD_FILENAME = "uploaded-furniture-source";
+
 let pngModulePromise = null;
 
 function getComfyUiBaseUrl() {
@@ -60,6 +61,25 @@ function getDenoiseValue() {
   return Math.min(1, Math.max(0, parsed));
 }
 
+function createComfyUiError(message, details = {}, cause) {
+  const error = new Error(message);
+  error.details = {
+    provider: "comfyui",
+    workflowMode: details.workflowMode || getWorkflowMode(),
+    workflowPath: details.workflowPath || null,
+    fallbackReason: details.fallbackReason || "local fake item flow",
+    summary: message,
+    ...details,
+  };
+
+  if (cause instanceof Error) {
+    error.cause = cause;
+    error.details.stack = cause.stack;
+  }
+
+  return error;
+}
+
 function sleep(milliseconds) {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
@@ -88,7 +108,7 @@ async function readWorkflowFile(workflowPathValue) {
     const workflowContents = await fs.readFile(workflowPath, "utf8");
     const parsedWorkflow = JSON.parse(workflowContents);
 
-    console.info("[comfyui] workflow file loaded", {
+    console.info("[comfyui] workflow loaded successfully", {
       workflowPath,
       topLevelKeys: Object.keys(parsedWorkflow || {}),
     });
@@ -99,10 +119,14 @@ async function readWorkflowFile(workflowPathValue) {
     };
   } catch (error) {
     if (error?.code === "ENOENT") {
-      throw new Error(`ComfyUI workflow file is missing: ${workflowPath}`);
+      throw createComfyUiError(`ComfyUI workflow file is missing: ${workflowPath}`, {
+        workflowPath,
+      });
     }
 
-    throw new Error(`Could not read ComfyUI workflow file: ${workflowPath}`);
+    throw createComfyUiError(`Could not read ComfyUI workflow file: ${workflowPath}`, {
+      workflowPath,
+    }, error instanceof Error ? error : undefined);
   }
 }
 
@@ -124,7 +148,7 @@ function randomSeed() {
   return Math.floor(Math.random() * 2147483647);
 }
 
-async function postJson(url, body, errorPrefix) {
+async function postJson(url, body, errorPrefix, details = {}) {
   let response;
 
   try {
@@ -135,14 +159,17 @@ async function postJson(url, body, errorPrefix) {
       },
       body: JSON.stringify(body),
     });
-  } catch {
-    throw new Error("ComfyUI is not running or is not reachable.");
+  } catch (error) {
+    throw createComfyUiError("ComfyUI is not running or is not reachable.", details, error);
   }
 
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || payload?.error || errorPrefix);
+    throw createComfyUiError(
+      payload?.error?.message || payload?.error || errorPrefix,
+      details
+    );
   }
 
   return payload;
@@ -172,22 +199,27 @@ async function checkComfyUiHealth() {
     }
   }
 
-  throw new Error(`ComfyUI is not reachable at ${baseUrl}`);
+  throw createComfyUiError(`ComfyUI is not reachable at ${baseUrl}`, {
+    workflowMode: getWorkflowMode(),
+  });
 }
 
-async function getJson(url, errorPrefix) {
+async function getJson(url, errorPrefix, details = {}) {
   let response;
 
   try {
     response = await fetch(url);
-  } catch {
-    throw new Error("ComfyUI is not running or is not reachable.");
+  } catch (error) {
+    throw createComfyUiError("ComfyUI is not running or is not reachable.", details, error);
   }
 
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message || payload?.error || errorPrefix);
+    throw createComfyUiError(
+      payload?.error?.message || payload?.error || errorPrefix,
+      details
+    );
   }
 
   return payload;
@@ -197,7 +229,7 @@ function parseDataUrl(imageDataUrl) {
   const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(imageDataUrl);
 
   if (!match) {
-    throw new Error("Expected a base64 image data URL for ComfyUI upload.");
+    throw createComfyUiError("Expected a base64 image data URL for ComfyUI upload.");
   }
 
   const mimeType = match[1];
@@ -217,6 +249,12 @@ async function uploadSourceImageToComfyUi(imageDataUrl) {
   const formData = new FormData();
   const filename = `${COMFYUI_UPLOAD_FILENAME}.${extension}`;
 
+  console.info("[comfyui] upload/image request start", {
+    baseUrl,
+    filename,
+    mimeType,
+  });
+
   formData.append(
     "image",
     new Blob([buffer], {
@@ -234,25 +272,41 @@ async function uploadSourceImageToComfyUi(imageDataUrl) {
       method: "POST",
       body: formData,
     });
-  } catch {
-    throw new Error("ComfyUI source image upload failed because the server is unreachable.");
+  } catch (error) {
+    throw createComfyUiError(
+      "ComfyUI source image upload failed because the server is unreachable.",
+      {
+        workflowMode: "img2img",
+      },
+      error
+    );
   }
 
   const payload = await response.json().catch(() => null);
 
+  console.info("[comfyui] upload/image response", {
+    ok: response.ok,
+    status: response.status,
+    payload,
+  });
+
   if (!response.ok) {
-    throw new Error(payload?.error?.message || payload?.error || "ComfyUI source image upload failed.");
+    throw createComfyUiError(
+      payload?.error?.message || payload?.error || "ComfyUI source image upload failed.",
+      {
+        workflowMode: "img2img",
+      }
+    );
   }
 
   const uploadedName = payload?.name || payload?.filename || filename;
   const uploadedSubfolder = payload?.subfolder || "";
   const uploadedType = payload?.type || "input";
 
-  console.info("[comfyui] source image uploaded", {
+  console.info("[comfyui] uploaded filename", {
     uploadedName,
     uploadedSubfolder,
     uploadedType,
-    mimeType,
   });
 
   return {
@@ -270,35 +324,57 @@ function findOutputImage(historyPayload, promptId) {
     return null;
   }
 
-  for (const outputNode of Object.values(outputs)) {
+  for (const [outputNodeId, outputNode] of Object.entries(outputs)) {
     const image = outputNode?.images?.[0];
 
     if (image?.filename) {
-      return image;
+      return {
+        outputNodeId,
+        image,
+      };
     }
   }
 
   return null;
 }
 
-async function fetchGeneratedImageAsBase64(imageInfo) {
+async function fetchGeneratedImageAsBase64(imageInfo, workflowMode) {
   const baseUrl = getComfyUiBaseUrl();
   const params = new URLSearchParams({
-    filename: imageInfo.filename,
-    subfolder: imageInfo.subfolder || "",
-    type: imageInfo.type || "output",
+    filename: imageInfo.image.filename,
+    subfolder: imageInfo.image.subfolder || "",
+    type: imageInfo.image.type || "output",
+  });
+
+  console.info("[comfyui] final image fetch", {
+    workflowMode,
+    outputNodeId: imageInfo.outputNodeId,
+    filename: imageInfo.image.filename,
+    subfolder: imageInfo.image.subfolder || "",
+    type: imageInfo.image.type || "output",
   });
 
   let response;
 
   try {
     response = await fetch(`${baseUrl}/view?${params.toString()}`);
-  } catch {
-    throw new Error("ComfyUI generated an image, but it could not be fetched.");
+  } catch (error) {
+    throw createComfyUiError(
+      "ComfyUI generated an image, but it could not be fetched.",
+      {
+        workflowMode,
+      },
+      error
+    );
   }
 
   if (!response.ok) {
-    throw new Error("ComfyUI generated an image, but /view did not return it.");
+    throw createComfyUiError(
+      "ComfyUI generated an image, but /view did not return it.",
+      {
+        workflowMode,
+      }
+    );
   }
 
   const contentType = response.headers.get("content-type") || "unknown";
@@ -306,6 +382,7 @@ async function fetchGeneratedImageAsBase64(imageInfo) {
   const processedImage = await processComfyUiImage(imageBuffer, contentType);
 
   console.info("[comfyui] image diagnostics", {
+    workflowMode,
     mimeType: contentType,
     hadAlpha: processedImage.hadAlpha,
     hasAlphaAfterCleanup: processedImage.hasAlphaAfterCleanup,
@@ -326,6 +403,7 @@ async function fetchGeneratedImageAsBase64(imageInfo) {
       originalHeight: processedImage.originalHeight,
       croppedWidth: processedImage.croppedWidth,
       croppedHeight: processedImage.croppedHeight,
+      outputNodeId: imageInfo.outputNodeId,
     },
   };
 }
@@ -603,60 +681,89 @@ function applyDenoise(workflow, denoiseValue) {
 }
 
 function applyLoadImage(workflow, uploadedImage) {
-  for (const node of Object.values(workflow)) {
+  for (const [nodeId, node] of Object.entries(workflow)) {
     if (node?.class_type === "LoadImage") {
       node.inputs = {
         ...(node.inputs || {}),
         image: uploadedImage.name,
       };
-      return true;
+      return nodeId;
     }
   }
 
-  return false;
+  return null;
 }
 
-async function waitForPromptCompletion(promptId) {
+async function waitForPromptCompletion(promptId, workflowMode) {
   const startedAt = Date.now();
   const timeoutMs = getTimeoutMs();
   const pollIntervalMs = getPollIntervalMs();
   const baseUrl = getComfyUiBaseUrl();
 
+  console.info("[comfyui] polling start", {
+    promptId,
+    workflowMode,
+    pollIntervalMs,
+    timeoutMs,
+  });
+
   while (Date.now() - startedAt < timeoutMs) {
     const historyPayload = await getJson(
       `${baseUrl}/history/${promptId}`,
-      "ComfyUI history request failed."
+      "ComfyUI history request failed.",
+      {
+        workflowMode,
+      }
     );
     const imageInfo = findOutputImage(historyPayload, promptId);
 
     if (imageInfo) {
+      console.info("[comfyui] polling completion", {
+        promptId,
+        workflowMode,
+        outputNodeId: imageInfo.outputNodeId,
+        filename: imageInfo.image.filename,
+      });
       return imageInfo;
     }
 
     await sleep(pollIntervalMs);
   }
 
-  throw new Error("Timed out waiting for ComfyUI to finish generation.");
+  throw createComfyUiError("Timed out waiting for ComfyUI to finish generation.", {
+    workflowMode,
+  });
 }
 
-function validateApiWorkflow(workflow) {
+function validateApiWorkflow(workflow, workflowPath, workflowMode) {
   if (workflow?.nodes && Array.isArray(workflow.nodes)) {
-    throw new Error("ComfyUI workflow must be exported in API format");
+    throw createComfyUiError("ComfyUI workflow must be exported in API format", {
+      workflowMode,
+      workflowPath,
+    });
   }
 
   if (!workflow || Array.isArray(workflow) || typeof workflow !== "object") {
-    throw new Error("ComfyUI workflow file is not a valid API-format workflow object.");
+    throw createComfyUiError("ComfyUI workflow file is not a valid API-format workflow object.", {
+      workflowMode,
+      workflowPath,
+    });
   }
 }
 
-function prepareWorkflow(workflow, generationPrompt, options = {}) {
-  validateApiWorkflow(workflow);
+function prepareWorkflow(workflow, workflowPath, generationPrompt, options = {}) {
+  const workflowMode = options.mode || "txt2img";
+  validateApiWorkflow(workflow, workflowPath, workflowMode);
 
   const checkpointName = getCheckpointName();
 
   if (checkpointName === WORKFLOW_PLACEHOLDER_CHECKPOINT) {
-    throw new Error(
-      "COMFYUI_CHECKPOINT_NAME is required for the starter ComfyUI workflows."
+    throw createComfyUiError(
+      "COMFYUI_CHECKPOINT_NAME is required for the starter ComfyUI workflows.",
+      {
+        workflowMode,
+        workflowPath,
+      }
     );
   }
 
@@ -681,111 +788,144 @@ function prepareWorkflow(workflow, generationPrompt, options = {}) {
   applySeed(workflow, randomSeed());
   applySavePrefix(workflow, `furniture-${Date.now()}`);
 
-  if (options.mode === "img2img") {
-    const loadImageApplied = applyLoadImage(workflow, options.uploadedImage);
+  let loadImageNodeId = null;
+
+  if (workflowMode === "img2img") {
+    loadImageNodeId = applyLoadImage(workflow, options.uploadedImage);
     const denoiseApplied = applyDenoise(workflow, getDenoiseValue());
 
-    if (!loadImageApplied) {
-      throw new Error("ComfyUI img2img workflow is missing a LoadImage node.");
+    console.info("[comfyui] detected LoadImage node id", {
+      loadImageNodeId,
+    });
+
+    if (!loadImageNodeId) {
+      throw createComfyUiError("ComfyUI img2img workflow is missing a LoadImage node.", {
+        workflowMode,
+        workflowPath,
+      });
     }
 
     if (!denoiseApplied) {
-      throw new Error("ComfyUI img2img workflow is missing a KSampler node for denoise injection.");
+      throw createComfyUiError(
+        "ComfyUI img2img workflow is missing a KSampler node for denoise injection.",
+        {
+          workflowMode,
+          workflowPath,
+        }
+      );
     }
   }
 
-  console.info("[comfyui] workflow patched", {
-    nodeCount,
+  console.info("[comfyui] prompt node ids", {
+    workflowMode,
     positiveNodeId,
     negativeNodeId,
     checkpointNodeId,
-    workflowMode: options.mode || "txt2img",
+    loadImageNodeId,
+    nodeCount,
   });
 
   if (!positiveApplied || !negativeApplied) {
-    throw new Error(
-      "ComfyUI workflow is missing Positive/Negative Prompt CLIPTextEncode nodes."
+    throw createComfyUiError(
+      "ComfyUI workflow is missing Positive/Negative Prompt CLIPTextEncode nodes.",
+      {
+        workflowMode,
+        workflowPath,
+      }
     );
   }
 
   if (!checkpointApplied) {
-    throw new Error(
-      "ComfyUI workflow is missing a CheckpointLoaderSimple node for checkpoint injection."
+    throw createComfyUiError(
+      "ComfyUI workflow is missing a CheckpointLoaderSimple node for checkpoint injection.",
+      {
+        workflowMode,
+        workflowPath,
+      }
     );
   }
 
   return workflow;
 }
 
-async function queueWorkflow({ workflow, workflowPath }) {
+async function queueWorkflow({ workflow, workflowPath, workflowMode }) {
   const baseUrl = getComfyUiBaseUrl();
-  console.info("[comfyui] starting prompt queue request", {
-    baseUrl,
-    workflowPath,
-  });
-  let promptPayload;
 
-  try {
-    promptPayload = await postJson(
-      `${baseUrl}/prompt`,
-      {
-        prompt: workflow,
-      },
-      "ComfyUI prompt queue failed."
-    );
-    console.info("[comfyui] /prompt response", promptPayload);
-  } catch (error) {
-    console.error("[comfyui] /prompt failed", error);
-    throw error;
-  }
+  console.info("[comfyui] /prompt request payload summary", {
+    workflowMode,
+    workflowPath,
+    nodeCount: Object.keys(workflow).length,
+    nodeIds: Object.keys(workflow),
+  });
+
+  const promptPayload = await postJson(
+    `${baseUrl}/prompt`,
+    {
+      prompt: workflow,
+    },
+    "ComfyUI prompt queue failed.",
+    {
+      workflowMode,
+      workflowPath,
+    }
+  );
+
+  console.info("[comfyui] /prompt response", promptPayload);
 
   const promptId = promptPayload?.prompt_id;
 
   if (!promptId) {
-    throw new Error("ComfyUI did not return a prompt_id.");
+    throw createComfyUiError("ComfyUI did not return a prompt_id.", {
+      workflowMode,
+      workflowPath,
+    });
   }
 
-  console.info("[comfyui] prompt queued", {
-    promptId,
-  });
-
-  const imageInfo = await waitForPromptCompletion(promptId);
-  return fetchGeneratedImageAsBase64(imageInfo);
+  const imageInfo = await waitForPromptCompletion(promptId, workflowMode);
+  return fetchGeneratedImageAsBase64(imageInfo, workflowMode);
 }
 
 async function runTxt2ImgWorkflow(generationPrompt) {
   const { workflowPath, workflow: parsedWorkflow } = await readWorkflowFile(getTxt2ImgWorkflowPath());
-  const workflow = prepareWorkflow(parsedWorkflow, generationPrompt, {
-    mode: "txt2img",
+  const workflowMode = "txt2img";
+  const workflow = prepareWorkflow(parsedWorkflow, workflowPath, generationPrompt, {
+    mode: workflowMode,
   });
   const result = await queueWorkflow({
     workflow,
     workflowPath,
+    workflowMode,
   });
 
   return {
     ...result,
     provider: "comfyui",
     model: "local-comfyui-txt2img",
+    workflowMode,
+    workflowPath,
   };
 }
 
 async function runImg2ImgWorkflow({ imageDataUrl, generationPrompt }) {
+  const workflowMode = "img2img";
   const uploadedImage = await uploadSourceImageToComfyUi(imageDataUrl);
   const { workflowPath, workflow: parsedWorkflow } = await readWorkflowFile(getImg2ImgWorkflowPath());
-  const workflow = prepareWorkflow(parsedWorkflow, generationPrompt, {
-    mode: "img2img",
+  const workflow = prepareWorkflow(parsedWorkflow, workflowPath, generationPrompt, {
+    mode: workflowMode,
     uploadedImage,
   });
   const result = await queueWorkflow({
     workflow,
     workflowPath,
+    workflowMode,
   });
 
   return {
     ...result,
     provider: "comfyui",
     model: "local-comfyui-img2img",
+    workflowMode,
+    workflowPath,
   };
 }
 
@@ -793,30 +933,59 @@ export async function generateWithComfyUi({
   generationPrompt,
   imageDataUrl,
 }) {
-  await checkComfyUiHealth();
-
   const workflowMode = getWorkflowMode();
 
-  if (workflowMode === "img2img") {
-    try {
-      return await runImg2ImgWorkflow({
-        imageDataUrl,
-        generationPrompt,
-      });
-    } catch (error) {
-      console.warn("[comfyui] img2img failed, falling back to txt2img", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+  console.info("[comfyui] selected workflow mode", {
+    workflowMode,
+    txt2imgWorkflowPath: getTxt2ImgWorkflowPath(),
+    img2imgWorkflowPath: getImg2ImgWorkflowPath(),
+  });
 
-      const txt2ImgResult = await runTxt2ImgWorkflow(generationPrompt);
+  try {
+    await checkComfyUiHealth();
 
-      return {
-        ...txt2ImgResult,
-        provider: "comfyui-txt2img-fallback",
-        fallbackReason: error instanceof Error ? error.message : "ComfyUI img2img failed.",
-      };
+    if (workflowMode === "img2img") {
+      try {
+        return await runImg2ImgWorkflow({
+          imageDataUrl,
+          generationPrompt,
+        });
+      } catch (error) {
+        console.warn("[comfyui] img2img failed, falling back to txt2img", {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : null,
+        });
+
+        const txt2ImgResult = await runTxt2ImgWorkflow(generationPrompt);
+
+        return {
+          ...txt2ImgResult,
+          provider: "comfyui-txt2img-fallback",
+          fallbackReason: error instanceof Error ? error.message : "ComfyUI img2img failed.",
+        };
+      }
     }
-  }
 
-  return runTxt2ImgWorkflow(generationPrompt);
+    return await runTxt2ImgWorkflow(generationPrompt);
+  } catch (error) {
+    console.error("[comfyui] generation failure", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : null,
+      details: error?.details || null,
+    });
+
+    if (error?.details) {
+      throw error;
+    }
+
+    throw createComfyUiError(
+      error instanceof Error ? error.message : "ComfyUI generation failed.",
+      {
+        workflowMode,
+        workflowPath:
+          workflowMode === "img2img" ? getImg2ImgWorkflowPath() : getTxt2ImgWorkflowPath(),
+      },
+      error instanceof Error ? error : undefined
+    );
+  }
 }

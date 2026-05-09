@@ -16,9 +16,11 @@ function UploadPanel({
   handleHistorySelect,
   handleRegenerateLatest,
   canRegenerate,
+  latestGenerationMeta,
 }) {
   const diagnosis = latestDiagnosis?.data;
   const hasDiagnosis = latestDiagnosis?.available && diagnosis;
+  const showTroubleshooting = latestGenerationMeta?.failed;
 
   return (
     <div className="upload-panel">
@@ -150,6 +152,42 @@ function UploadPanel({
           </p>
         )}
       </div>
+
+      {showTroubleshooting ? (
+        <div className="diagnosis-panel diagnosis-panel-warning">
+          <div className="diagnosis-panel-header">
+            <h3 className="diagnosis-title">Generation Troubleshooting</h3>
+          </div>
+          <div className="diagnosis-content">
+            <p className="diagnosis-row">
+              <span className="diagnosis-label">Provider</span>
+              <strong>{latestGenerationMeta.provider || "backend"}</strong>
+            </p>
+            <p className="diagnosis-row">
+              <span className="diagnosis-label">Workflow mode</span>
+              <strong>{latestGenerationMeta.workflowMode || "unknown"}</strong>
+            </p>
+            <p className="diagnosis-row">
+              <span className="diagnosis-label">Fallback reason</span>
+              <strong>{latestGenerationMeta.fallbackReason || "local fallback triggered"}</strong>
+            </p>
+            <p className="diagnosis-description">
+              {latestGenerationMeta.summary || "The backend returned an error before item generation completed."}
+            </p>
+            <div className="diagnosis-troubleshooting">
+              <p className="diagnosis-label">Possible causes</p>
+              <ul className="diagnosis-troubleshooting-list">
+                <li>ComfyUI not running</li>
+                <li>invalid API workflow export</li>
+                <li>checkpoint mismatch</li>
+                <li>missing LoadImage node</li>
+                <li>workflow node id mismatch</li>
+                <li>timeout</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="history-panel">
         <div className="history-panel-header">

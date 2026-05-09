@@ -266,6 +266,11 @@ button {
   background: #fffaf2;
 }
 
+.diagnosis-panel-warning {
+  border-color: #d0b288;
+  background: #fff4e7;
+}
+
 .diagnosis-panel-header {
   display: flex;
   align-items: center;
@@ -325,6 +330,20 @@ button {
   font-size: 14px;
   line-height: 1.45;
   color: #7d6b56;
+}
+
+.diagnosis-troubleshooting {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.diagnosis-troubleshooting-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #6a5a47;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .history-panel {

@@ -6,7 +6,7 @@ import {
 export default async function handler(request, response) {
   console.info("[api/generate-item] route hit", {
     method: request.method,
-    generationProvider: process.env.GENERATION_PROVIDER || "openai",
+    generationProvider: process.env.GENERATION_PROVIDER || "comfyui",
     comfyUiBaseUrl: process.env.COMFYUI_BASE_URL || "http://127.0.0.1:8188",
     comfyUiWorkflowPath:
       process.env.COMFYUI_WORKFLOW_PATH ||
@@ -43,11 +43,28 @@ export default async function handler(request, response) {
     return response.status(200).json(generatedItem);
   } catch (error) {
     console.error("[api/generate-item] generation failed", error);
+    const details = error?.details || {
+      provider: process.env.GENERATION_PROVIDER || "comfyui",
+      workflowMode: process.env.COMFYUI_WORKFLOW_MODE || "txt2img",
+      workflowPath:
+        (process.env.COMFYUI_WORKFLOW_MODE || "txt2img") === "img2img"
+          ? process.env.COMFYUI_IMG2IMG_WORKFLOW_PATH ||
+            "./api/comfyui-workflows/furniture-img2img.json"
+          : process.env.COMFYUI_WORKFLOW_PATH ||
+            "./api/comfyui-workflows/furniture-txt2img.json",
+      fallbackReason: "local fake item flow",
+      summary:
+        error instanceof Error
+          ? error.message
+          : "Unable to generate an item image right now.",
+      stack: error instanceof Error ? error.stack : null,
+    };
     return response.status(500).json({
       error:
         error instanceof Error
           ? error.message
           : "Unable to generate an item image right now.",
+      details,
     });
   }
 }

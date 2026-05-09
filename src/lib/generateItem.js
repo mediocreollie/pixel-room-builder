@@ -1,6 +1,13 @@
 const REAL_GENERATION_ENABLED =
   import.meta.env.VITE_ENABLE_REAL_GENERATION === "true";
 
+function buildGenerationError(payload, fallbackMessage) {
+  const error = new Error(payload?.error || fallbackMessage);
+  error.details = payload?.details || null;
+  error.meta = payload?.meta || null;
+  return error;
+}
+
 function wait(milliseconds) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
@@ -126,7 +133,8 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
   });
 
   if (!response.ok) {
-    throw new Error(payload?.error || "Generation request failed.");
+    console.error("[generation] backend failure payload", payload);
+    throw buildGenerationError(payload, "Generation request failed.");
   }
 
   if (!payload?.item?.image) {
@@ -149,5 +157,6 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
       itemNumber,
     }),
     diagnosis: payload?.diagnosis || null,
+    meta: payload?.meta || null,
   };
 }

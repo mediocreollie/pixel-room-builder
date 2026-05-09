@@ -276,6 +276,8 @@ export async function generateFurnitureItem(payload) {
     meta: {
       source: generationResult.provider,
       model: generationResult.model,
+      workflowMode: generationResult.workflowMode || null,
+      workflowPath: generationResult.workflowPath || null,
       diagnosisSource,
       diagnosisFallback,
       fallbackReason: generationResult.fallbackReason,

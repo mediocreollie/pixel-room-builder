@@ -20,6 +20,36 @@ const PLACED_OBJECTS_STORAGE_KEY = "furniture-pixel-app-placed-objects";
 const AUTO_OVERRIDE_VALUE = "auto";
 const MAX_GENERATION_HISTORY = 8;
 
+function formatFailureSummary(details) {
+  if (!details) {
+    return "Backend request failed. Used local fallback instead.";
+  }
+
+  const summaryParts = [];
+
+  if (details.provider) {
+    summaryParts.push(`provider: ${details.provider}`);
+  }
+
+  if (details.workflowMode) {
+    summaryParts.push(`workflow: ${details.workflowMode}`);
+  }
+
+  if (details.fallbackReason) {
+    summaryParts.push(`fallback: ${details.fallbackReason}`);
+  }
+
+  if (details.summary) {
+    summaryParts.push(`error: ${details.summary}`);
+  }
+
+  if (summaryParts.length === 0) {
+    return "Backend request failed. Used local fallback instead.";
+  }
+
+  return `${summaryParts.join(" | ")}. Used local fallback instead.`;
+}
+
 function getAnchorLabel(item) {
   const anchor = item.render?.anchor;
 
@@ -130,6 +160,7 @@ function App() {
   const [latestGeneratedBaseItem, setLatestGeneratedBaseItem] = useState(null);
   const [latestSourceFile, setLatestSourceFile] = useState(null);
   const [generationHistory, setGenerationHistory] = useState([]);
+  const [latestGenerationMeta, setLatestGenerationMeta] = useState(null);
 
   useEffect(() => {
     const savedPlacedObjects = placedObjects.filter(
@@ -206,6 +237,7 @@ function App() {
     setOverrideAnchor(AUTO_OVERRIDE_VALUE);
     setLatestGeneratedItemKey("");
     setLatestGeneratedBaseItem(null);
+    setLatestGenerationMeta(null);
   }
 
   useEffect(() => {
@@ -349,13 +381,20 @@ function App() {
           setOverrideAnchor(overrideState.anchor);
           setLatestGeneratedItemKey(nextItemKey);
           setLatestGeneratedBaseItem(generationResult.item);
+          setLatestGenerationMeta({
+            failed: false,
+            source: generationResult.meta?.source || "backend",
+            workflowMode: generationResult.meta?.workflowMode || null,
+            fallbackReason: generationResult.meta?.fallbackReason || null,
+            summary: null,
+          });
         } catch (error) {
           console.error("Falling back to fake item generation.", error);
-          const failureReason =
-            error instanceof Error ? error.message : "Unknown backend failure.";
-          setUploadMessage(
-            `Backend request failed: ${failureReason}. Used local fallback instead.`
-          );
+          const failureDetails = error?.details || {
+            provider: "backend",
+            summary: error instanceof Error ? error.message : "Unknown backend failure.",
+          };
+          setUploadMessage(formatFailureSummary(failureDetails));
           generationResult = await createFakeGeneratedItem({
             file: sourceFile,
             itemId: nextItemKey,
@@ -371,6 +410,10 @@ function App() {
           setOverrideAnchor(AUTO_OVERRIDE_VALUE);
           setLatestGeneratedItemKey("");
           setLatestGeneratedBaseItem(null);
+          setLatestGenerationMeta({
+            failed: true,
+            ...failureDetails,
+          });
         }
       } else {
         generationResult = await createFakeGeneratedItem({
@@ -389,6 +432,13 @@ function App() {
         setOverrideAnchor(AUTO_OVERRIDE_VALUE);
         setLatestGeneratedItemKey("");
         setLatestGeneratedBaseItem(null);
+        setLatestGenerationMeta({
+          failed: false,
+          source: "fake",
+          workflowMode: null,
+          fallbackReason: null,
+          summary: null,
+        });
       }
 
       const finalItem =
@@ -566,6 +616,7 @@ function App() {
               handleHistorySelect={handleHistorySelect}
               handleRegenerateLatest={handleRegenerateLatest}
               canRegenerate={!!latestSourceFile && !isCreatingItem}
+              latestGenerationMeta={latestGenerationMeta}
             />
           </div>
         </div>
