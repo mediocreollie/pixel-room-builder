@@ -4,6 +4,15 @@ import {
 } from "./generate-item-service.js";
 
 export default async function handler(request, response) {
+  console.info("[api/generate-item] route hit", {
+    method: request.method,
+    generationProvider: process.env.GENERATION_PROVIDER || "openai",
+    comfyUiBaseUrl: process.env.COMFYUI_BASE_URL || "http://127.0.0.1:8188",
+    comfyUiWorkflowPath:
+      process.env.COMFYUI_WORKFLOW_PATH ||
+      "./api/comfyui-workflows/furniture-txt2img.json",
+  });
+
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return response.status(405).json({
@@ -21,10 +30,19 @@ export default async function handler(request, response) {
 
   try {
     const payload = await readJsonRequestBody(request);
+    console.info("[api/generate-item] payload received", {
+      payloadKeys: Object.keys(payload || {}),
+      hasImageDataUrl:
+        typeof payload?.imageDataUrl === "string" &&
+        payload.imageDataUrl.startsWith("data:image/"),
+      itemId: payload?.itemId,
+      itemNumber: payload?.itemNumber,
+    });
     const generatedItem = await generateFurnitureItem(payload);
 
     return response.status(200).json(generatedItem);
   } catch (error) {
+    console.error("[api/generate-item] generation failed", error);
     return response.status(500).json({
       error:
         error instanceof Error

@@ -351,7 +351,11 @@ function App() {
           setLatestGeneratedBaseItem(generationResult.item);
         } catch (error) {
           console.error("Falling back to fake item generation.", error);
-          setUploadMessage("Backend request failed. Used local fallback instead.");
+          const failureReason =
+            error instanceof Error ? error.message : "Unknown backend failure.";
+          setUploadMessage(
+            `Backend request failed: ${failureReason}. Used local fallback instead.`
+          );
           generationResult = await createFakeGeneratedItem({
             file: sourceFile,
             itemId: nextItemKey,

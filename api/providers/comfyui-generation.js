@@ -49,7 +49,17 @@ async function readWorkflowFile() {
 
   try {
     const workflowContents = await fs.readFile(workflowPath, "utf8");
-    return JSON.parse(workflowContents);
+    const parsedWorkflow = JSON.parse(workflowContents);
+
+    console.info("[comfyui] workflow file loaded", {
+      workflowPath,
+      topLevelKeys: Object.keys(parsedWorkflow || {}),
+    });
+
+    return {
+      workflowPath,
+      workflow: parsedWorkflow,
+    };
   } catch (error) {
     if (error?.code === "ENOENT") {
       throw new Error(`ComfyUI workflow file is missing: ${workflowPath}`);
@@ -159,6 +169,33 @@ async function postJson(url, body, errorPrefix) {
   }
 
   return payload;
+}
+
+async function checkComfyUiHealth() {
+  const baseUrl = getComfyUiBaseUrl();
+  const healthUrls = [`${baseUrl}/system_stats`, baseUrl];
+
+  for (const url of healthUrls) {
+    try {
+      const response = await fetch(url);
+      console.info("[comfyui] health check", {
+        url,
+        ok: response.ok,
+        status: response.status,
+      });
+
+      if (response.ok) {
+        return true;
+      }
+    } catch (error) {
+      console.warn("[comfyui] health check failed", {
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  throw new Error(`ComfyUI is not reachable at ${baseUrl}`);
 }
 
 async function getJson(url, errorPrefix) {
@@ -397,6 +434,16 @@ function processComfyUiImage(imageBuffer, mimeType) {
   };
 }
 
+function findNodeIdByMatcher(workflow, matcher) {
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    if (matcher(node)) {
+      return nodeId;
+    }
+  }
+
+  return null;
+}
+
 async function waitForPromptCompletion(promptId) {
   const startedAt = Date.now();
   const timeoutMs = getTimeoutMs();
@@ -421,6 +468,14 @@ async function waitForPromptCompletion(promptId) {
 }
 
 function prepareWorkflow(workflow, generationPrompt) {
+  if (workflow?.nodes && Array.isArray(workflow.nodes)) {
+    throw new Error("ComfyUI workflow must be exported in API format");
+  }
+
+  if (!workflow || Array.isArray(workflow) || typeof workflow !== "object") {
+    throw new Error("ComfyUI workflow file is not a valid API-format workflow object.");
+  }
+
   const checkpointName = getCheckpointName();
 
   if (checkpointName === WORKFLOW_PLACEHOLDER_CHECKPOINT) {
@@ -440,9 +495,37 @@ function prepareWorkflow(workflow, generationPrompt) {
     buildNegativePrompt()
   );
   const checkpointApplied = applyCheckpoint(workflow, checkpointName);
+  const positiveNodeId = findNodeIdByMatcher(
+    workflow,
+    (node) =>
+      node &&
+      node.class_type === "CLIPTextEncode" &&
+      typeof node._meta?.title === "string" &&
+      node._meta.title.toLowerCase().includes("positive")
+  );
+  const negativeNodeId = findNodeIdByMatcher(
+    workflow,
+    (node) =>
+      node &&
+      node.class_type === "CLIPTextEncode" &&
+      typeof node._meta?.title === "string" &&
+      node._meta.title.toLowerCase().includes("negative")
+  );
+  const checkpointNodeId = findNodeIdByMatcher(
+    workflow,
+    (node) => node?.class_type === "CheckpointLoaderSimple"
+  );
+  const nodeCount = Object.keys(workflow).length;
 
   applySeed(workflow, randomSeed());
   applySavePrefix(workflow, `furniture-${Date.now()}`);
+
+  console.info("[comfyui] workflow patched", {
+    nodeCount,
+    positiveNodeId,
+    negativeNodeId,
+    checkpointNodeId,
+  });
 
   if (!positiveApplied || !negativeApplied) {
     throw new Error(
@@ -466,20 +549,38 @@ export async function generateWithComfyUi({
   imageDataUrl: _imageDataUrl,
 }) {
   const baseUrl = getComfyUiBaseUrl();
-  const workflow = prepareWorkflow(await readWorkflowFile(), generationPrompt);
-  const promptPayload = await postJson(
-    `${baseUrl}/prompt`,
-    {
-      prompt: workflow,
-    },
-    "ComfyUI prompt queue failed."
-  );
+  await checkComfyUiHealth();
+  const { workflowPath, workflow: parsedWorkflow } = await readWorkflowFile();
+  const workflow = prepareWorkflow(parsedWorkflow, generationPrompt);
+  console.info("[comfyui] starting prompt queue request", {
+    baseUrl,
+    workflowPath,
+  });
+  let promptPayload;
+
+  try {
+    promptPayload = await postJson(
+      `${baseUrl}/prompt`,
+      {
+        prompt: workflow,
+      },
+      "ComfyUI prompt queue failed."
+    );
+    console.info("[comfyui] /prompt response", promptPayload);
+  } catch (error) {
+    console.error("[comfyui] /prompt failed", error);
+    throw error;
+  }
 
   const promptId = promptPayload?.prompt_id;
 
   if (!promptId) {
     throw new Error("ComfyUI did not return a prompt_id.");
   }
+
+  console.info("[comfyui] prompt queued", {
+    promptId,
+  });
 
   const imageInfo = await waitForPromptCompletion(promptId);
   const { imageBase64, mimeType, diagnostics } = await fetchGeneratedImageAsBase64(imageInfo);

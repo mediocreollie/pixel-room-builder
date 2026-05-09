@@ -206,6 +206,13 @@ async function generateWithSelectedProvider({ imageDataUrl, diagnosis }) {
 
 export async function generateFurnitureItem(payload) {
   const { imageDataUrl, itemId, itemNumber } = validateGenerateItemPayload(payload);
+  const generationProvider = getGenerationProvider();
+
+  console.info("[generation-service] starting generation", {
+    generationProvider,
+    itemId,
+    itemNumber,
+  });
 
   let diagnosis = DEFAULT_DIAGNOSIS;
   let diagnosisFallback = false;
@@ -227,6 +234,14 @@ export async function generateFurnitureItem(payload) {
   const generationResult = await generateWithSelectedProvider({
     imageDataUrl,
     diagnosis,
+  });
+
+  console.info("[generation-service] generation complete", {
+    generationProvider,
+    resultProvider: generationResult.provider,
+    resultModel: generationResult.model,
+    fallbackReason: generationResult.fallbackReason,
+    mimeType: generationResult.mimeType,
   });
 
   return {

@@ -89,9 +89,22 @@ export async function createFakeGeneratedItem({ file, itemId, itemNumber }) {
 }
 
 export async function requestGeneratedItem({ file, itemId, itemNumber }) {
-  const imageDataUrl = await readFileAsDataUrl(file);
+  console.info("[generation] create item clicked", {
+    realGenerationEnabled: REAL_GENERATION_ENABLED,
+    itemId,
+    itemNumber,
+    fileName: file?.name,
+  });
 
-  const response = await fetch("/api/generate-item", {
+  const imageDataUrl = await readFileAsDataUrl(file);
+  const requestUrl = "/api/generate-item";
+
+  console.info("[generation] requestGeneratedItem called", {
+    requestUrl,
+    imageDataUrlPrefix: imageDataUrl.slice(0, 32),
+  });
+
+  const response = await fetch(requestUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -104,6 +117,13 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
   });
 
   const payload = await response.json().catch(() => null);
+
+  console.info("[generation] backend response received", {
+    ok: response.ok,
+    status: response.status,
+    payloadKeys: payload ? Object.keys(payload) : [],
+    error: payload?.error,
+  });
 
   if (!response.ok) {
     throw new Error(payload?.error || "Generation request failed.");
