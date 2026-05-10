@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import {
   generateFurnitureItem,
@@ -59,6 +59,27 @@ function mockGenerateItemApiPlugin() {
   }
 }
 
-export default defineConfig({
-  plugins: [react(), mockGenerateItemApiPlugin()],
+function applyServerEnv(mode) {
+  const loadedEnv = loadEnv(mode, process.cwd(), '')
+  Object.assign(process.env, loadedEnv)
+
+  console.info('[vite-dev-api] server env status', {
+    generationProvider: process.env.GENERATION_PROVIDER || 'comfyui',
+    comfyUiBaseUrl: process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188',
+    comfyUiWorkflowMode: process.env.COMFYUI_WORKFLOW_MODE || 'txt2img',
+    hasComfyUiCheckpointName:
+      typeof process.env.COMFYUI_CHECKPOINT_NAME === 'string' &&
+      process.env.COMFYUI_CHECKPOINT_NAME.trim().length > 0,
+    hasOpenAiApiKey:
+      typeof process.env.OPENAI_API_KEY === 'string' &&
+      process.env.OPENAI_API_KEY.trim().length > 0,
+  })
+}
+
+export default defineConfig(({ mode }) => {
+  applyServerEnv(mode)
+
+  return {
+    plugins: [react(), mockGenerateItemApiPlugin()],
+  }
 })
