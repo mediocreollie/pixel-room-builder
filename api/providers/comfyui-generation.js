@@ -14,6 +14,11 @@ const WHITE_BACKGROUND_THRESHOLD = 242;
 const CROPPING_PADDING = 2;
 const DEFAULT_DENOISE = 0.45;
 const COMFYUI_UPLOAD_FILENAME = "uploaded-furniture-source";
+const DEFAULT_STEPS = 8;
+const DEFAULT_CFG = 5;
+const DEFAULT_WIDTH = 256;
+const DEFAULT_HEIGHT = 256;
+const DEFAULT_BATCH_SIZE = 1;
 
 let pngModulePromise = null;
 
@@ -59,6 +64,31 @@ function getDenoiseValue() {
   }
 
   return Math.min(1, Math.max(0, parsed));
+}
+
+function getStepsValue() {
+  const parsed = Number.parseInt(process.env.COMFYUI_STEPS || String(DEFAULT_STEPS), 10);
+  return Number.isNaN(parsed) ? DEFAULT_STEPS : Math.max(1, parsed);
+}
+
+function getCfgValue() {
+  const parsed = Number.parseFloat(process.env.COMFYUI_CFG || String(DEFAULT_CFG));
+  return Number.isNaN(parsed) ? DEFAULT_CFG : Math.max(1, parsed);
+}
+
+function getWidthValue() {
+  const parsed = Number.parseInt(process.env.COMFYUI_WIDTH || String(DEFAULT_WIDTH), 10);
+  return Number.isNaN(parsed) ? DEFAULT_WIDTH : Math.max(64, parsed);
+}
+
+function getHeightValue() {
+  const parsed = Number.parseInt(process.env.COMFYUI_HEIGHT || String(DEFAULT_HEIGHT), 10);
+  return Number.isNaN(parsed) ? DEFAULT_HEIGHT : Math.max(64, parsed);
+}
+
+function getBatchSizeValue() {
+  const parsed = Number.parseInt(process.env.COMFYUI_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10);
+  return Number.isNaN(parsed) ? DEFAULT_BATCH_SIZE : Math.max(1, parsed);
 }
 
 function createComfyUiError(message, details = {}, cause) {
@@ -680,6 +710,41 @@ function applyDenoise(workflow, denoiseValue) {
   return false;
 }
 
+function applySamplerDefaults(workflow) {
+  let applied = false;
+
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "KSampler") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        steps: getStepsValue(),
+        cfg: getCfgValue(),
+      };
+      applied = true;
+    }
+  }
+
+  return applied;
+}
+
+function applyLatentImageDefaults(workflow) {
+  let applied = false;
+
+  for (const node of Object.values(workflow)) {
+    if (node?.class_type === "EmptyLatentImage") {
+      node.inputs = {
+        ...(node.inputs || {}),
+        width: getWidthValue(),
+        height: getHeightValue(),
+        batch_size: getBatchSizeValue(),
+      };
+      applied = true;
+    }
+  }
+
+  return applied;
+}
+
 function applyLoadImage(workflow, uploadedImage) {
   for (const [nodeId, node] of Object.entries(workflow)) {
     if (node?.class_type === "LoadImage") {
@@ -779,6 +844,8 @@ function prepareWorkflow(workflow, workflowPath, generationPrompt, options = {})
     buildNegativePrompt()
   );
   const checkpointApplied = applyCheckpoint(workflow, checkpointName);
+  const samplerDefaultsApplied = applySamplerDefaults(workflow);
+  const latentDefaultsApplied = applyLatentImageDefaults(workflow);
   const checkpointNodeId = findNodeIdByMatcher(
     workflow,
     (node) => node?.class_type === "CheckpointLoaderSimple"
@@ -823,6 +890,14 @@ function prepareWorkflow(workflow, workflowPath, generationPrompt, options = {})
     checkpointNodeId,
     loadImageNodeId,
     nodeCount,
+    samplerDefaultsApplied,
+    latentDefaultsApplied,
+    steps: getStepsValue(),
+    cfg: getCfgValue(),
+    width: getWidthValue(),
+    height: getHeightValue(),
+    batchSize: getBatchSizeValue(),
+    denoise: workflowMode === "img2img" ? getDenoiseValue() : null,
   });
 
   if (!positiveApplied || !negativeApplied) {
