@@ -12,10 +12,11 @@ const DEFAULT_NEGATIVE_PROMPT =
 const WORKFLOW_PLACEHOLDER_CHECKPOINT = "PUT_CHECKPOINT_NAME_HERE";
 const WHITE_BACKGROUND_THRESHOLD = 242;
 const CROPPING_PADDING = 2;
-const DEFAULT_DENOISE = 0.45;
+const DEFAULT_DENOISE = 0.35;
 const COMFYUI_UPLOAD_FILENAME = "uploaded-furniture-source";
-const DEFAULT_STEPS = 8;
-const DEFAULT_CFG = 5;
+const DEBUG_PROMPT_PATH = "./api/debug-last-comfyui-prompt.json";
+const DEFAULT_STEPS = 6;
+const DEFAULT_CFG = 4;
 const DEFAULT_WIDTH = 256;
 const DEFAULT_HEIGHT = 256;
 const DEFAULT_BATCH_SIZE = 1;
@@ -89,6 +90,14 @@ function getHeightValue() {
 function getBatchSizeValue() {
   const parsed = Number.parseInt(process.env.COMFYUI_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10);
   return Number.isNaN(parsed) ? DEFAULT_BATCH_SIZE : Math.max(1, parsed);
+}
+
+async function writeDebugPromptFile(debugPayload) {
+  const debugPath = path.resolve(process.cwd(), DEBUG_PROMPT_PATH);
+  await fs.writeFile(debugPath, JSON.stringify(debugPayload, null, 2), "utf8");
+  console.info("[comfyui] saved debug prompt file", {
+    debugPath,
+  });
 }
 
 function createComfyUiError(message, details = {}, cause) {
@@ -780,6 +789,36 @@ async function waitForPromptCompletion(promptId, workflowMode) {
         workflowMode,
       }
     );
+    const promptHistory = historyPayload?.[promptId];
+    const status = promptHistory?.status;
+
+    if (status?.status_str === "error") {
+      const interruptedMessage = status.messages?.find?.(
+        (message) => message?.[0] === "execution_interrupted"
+      );
+      const errorMessage = status.messages?.find?.(
+        (message) => message?.[0] === "execution_error"
+      );
+
+      const historyErrorMessage =
+        errorMessage?.[1]?.exception_message ||
+        (interruptedMessage?.[1]?.node_type
+          ? `ComfyUI execution stopped at ${interruptedMessage[1].node_type}.`
+          : "ComfyUI execution failed.");
+
+      throw createComfyUiError(
+        historyErrorMessage,
+        {
+          workflowMode,
+          promptId,
+          statusMessages: status.messages,
+          interruptedNodeId: interruptedMessage?.[1]?.node_id || null,
+          interruptedNodeType: interruptedMessage?.[1]?.node_type || null,
+          executedNodeIds: interruptedMessage?.[1]?.executed || [],
+        }
+      );
+    }
+
     const imageInfo = findOutputImage(historyPayload, promptId);
 
     if (imageInfo) {
@@ -931,6 +970,12 @@ async function queueWorkflow({ workflow, workflowPath, workflowMode }) {
     workflowPath,
     nodeCount: Object.keys(workflow).length,
     nodeIds: Object.keys(workflow),
+  });
+  await writeDebugPromptFile({
+    savedAt: new Date().toISOString(),
+    workflowMode,
+    workflowPath,
+    prompt: workflow,
   });
 
   const promptPayload = await postJson(
