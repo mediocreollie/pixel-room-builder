@@ -2,6 +2,8 @@ function UploadPanel({
   inputKey,
   selectedFile,
   previewUrl,
+  objectTypeHint,
+  setObjectTypeHint,
   handleFileChange,
   handleCreateItem,
   isCreatingItem,
@@ -41,6 +43,18 @@ function UploadPanel({
         type="file"
         accept="image/*"
         onChange={handleFileChange}
+      />
+
+      <label className="upload-input-label" htmlFor="object-type-hint">
+        Object type
+      </label>
+      <input
+        id="object-type-hint"
+        className="upload-text-input"
+        type="text"
+        value={objectTypeHint}
+        onChange={(event) => setObjectTypeHint(event.target.value)}
+        placeholder="e.g. outdoor table, chair, sofa, lamp"
       />
 
       <div className="upload-preview">

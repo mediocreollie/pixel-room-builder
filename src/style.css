@@ -215,6 +215,20 @@ button {
   font: inherit;
 }
 
+.upload-text-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d8cfbf;
+  border-radius: 12px;
+  background: #fffdf9;
+  color: #2a241d;
+  font: inherit;
+}
+
+.upload-text-input::placeholder {
+  color: #98856c;
+}
+
 .upload-preview {
   display: flex;
   align-items: center;

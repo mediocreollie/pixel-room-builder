@@ -37,6 +37,7 @@ export default async function handler(request, response) {
         payload.imageDataUrl.startsWith("data:image/"),
       itemId: payload?.itemId,
       itemNumber: payload?.itemNumber,
+      objectTypeHint: payload?.objectTypeHint || "",
     });
     const generatedItem = await generateFurnitureItem(payload);
 

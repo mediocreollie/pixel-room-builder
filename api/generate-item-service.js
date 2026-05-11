@@ -15,7 +15,7 @@ const DEFAULT_DIAGNOSIS = {
   anchor: "upright",
   scaleGuidance: "standard upright object, should fit clearly within one tile",
   generationGuidance:
-    "create a simple isometric pixel-art furniture item based on the uploaded image",
+    "preserve the original furniture category, main silhouette, overall proportions, and major structural parts from the uploaded object; do not reinterpret it as a different furniture item",
 };
 
 function readRequestStream(request) {
@@ -60,6 +60,10 @@ export function validateGenerateItemPayload(payload) {
       : undefined;
   const parsedItemNumber = Number.parseInt(String(payload?.itemNumber ?? "1"), 10);
   const itemNumber = Number.isNaN(parsedItemNumber) ? 1 : parsedItemNumber;
+  const objectTypeHint =
+    typeof payload?.objectTypeHint === "string" && payload.objectTypeHint.trim().length > 0
+      ? payload.objectTypeHint.trim()
+      : "";
 
   if (
     typeof imageDataUrl !== "string" ||
@@ -72,6 +76,7 @@ export function validateGenerateItemPayload(payload) {
     imageDataUrl,
     itemId,
     itemNumber,
+    objectTypeHint,
   };
 }
 
@@ -140,11 +145,19 @@ function buildDiagnosisPrompt() {
   ].join(" ");
 }
 
-function buildGenerationPrompt(diagnosis) {
+function buildGenerationPrompt(diagnosis, objectTypeHint = "") {
+  const leadingInstruction = objectTypeHint
+    ? `The uploaded object is a ${objectTypeHint}. Convert this exact ${objectTypeHint} into a single isometric pixel-art game sprite.`
+    : "Convert the uploaded furniture object into one single isolated game-ready isometric pixel-art furniture sprite.";
+
   return [
-    "Edit the uploaded object photo into one single isolated isometric pixel-art furniture sprite.",
-    "Use a transparent background.",
-    "Do not include any environment, floor, walls, room, cast shadow, text, frame, or extra props.",
+    leadingInstruction,
+    "Preserve the original object type exactly.",
+    "Preserve the main silhouette, proportions, and major structural features of the uploaded object.",
+    "Do not change it into a different furniture category or different furniture silhouette.",
+    "Use a transparent background if possible.",
+    "Show only one object in a 3/4 isometric view with top-left lighting.",
+    "Do not include any environment, floor, walls, room scene, cast shadow, text, frame, watermark, or extra props.",
     `Object type: ${diagnosis.objectType}.`,
     `Display name: ${diagnosis.displayName}.`,
     `Visible description: ${diagnosis.description}.`,
@@ -152,7 +165,7 @@ function buildGenerationPrompt(diagnosis) {
     `Anchor guidance: ${diagnosis.anchor}.`,
     `Scale guidance: ${diagnosis.scaleGuidance}.`,
     `Preserve these key features: ${diagnosis.generationGuidance}.`,
-    "Keep only the main object, simplify small details, and make the result readable as a cozy simulation-game asset.",
+    "Keep only the main uploaded object, simplify small details, and make the result readable as a cozy simulation-game asset.",
   ].join(" ");
 }
 
@@ -187,8 +200,8 @@ async function diagnoseFurnitureObject({ imageDataUrl, itemNumber, generationPro
   });
 }
 
-async function generateWithSelectedProvider({ imageDataUrl, diagnosis }) {
-  const generationPrompt = buildGenerationPrompt(diagnosis);
+async function generateWithSelectedProvider({ imageDataUrl, diagnosis, objectTypeHint }) {
+  const generationPrompt = buildGenerationPrompt(diagnosis, objectTypeHint);
   const provider = getGenerationProvider();
 
   if (provider === "comfyui") {
@@ -223,13 +236,14 @@ async function generateWithSelectedProvider({ imageDataUrl, diagnosis }) {
 }
 
 export async function generateFurnitureItem(payload) {
-  const { imageDataUrl, itemId, itemNumber } = validateGenerateItemPayload(payload);
+  const { imageDataUrl, itemId, itemNumber, objectTypeHint } = validateGenerateItemPayload(payload);
   const generationProvider = getGenerationProvider();
 
   console.info("[generation-service] starting generation", {
     generationProvider,
     itemId,
     itemNumber,
+    objectTypeHint,
   });
 
   let diagnosis = DEFAULT_DIAGNOSIS;
@@ -256,6 +270,7 @@ export async function generateFurnitureItem(payload) {
   const generationResult = await generateWithSelectedProvider({
     imageDataUrl,
     diagnosis,
+    objectTypeHint,
   });
 
   console.info("[generation-service] generation complete", {

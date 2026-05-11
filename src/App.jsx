@@ -149,6 +149,7 @@ function App() {
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const [mode, setMode] = useState("place");
   const [selectedFile, setSelectedFile] = useState(null);
+  const [objectTypeHint, setObjectTypeHint] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [isCreatingItem, setIsCreatingItem] = useState(false);
   const [uploadInputKey, setUploadInputKey] = useState(0);
@@ -369,6 +370,7 @@ function App() {
             file: sourceFile,
             itemId: nextItemKey,
             itemNumber,
+            objectTypeHint,
           });
           diagnosisState = {
             available: true,
@@ -602,6 +604,8 @@ function App() {
               inputKey={uploadInputKey}
               selectedFile={selectedFile}
               previewUrl={previewUrl}
+              objectTypeHint={objectTypeHint}
+              setObjectTypeHint={setObjectTypeHint}
               handleFileChange={handleFileChange}
               handleCreateItem={handleCreateItem}
               isCreatingItem={isCreatingItem}

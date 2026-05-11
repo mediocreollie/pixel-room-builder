@@ -8,7 +8,9 @@ const DEFAULT_WORKFLOW_MODE = "txt2img";
 const DEFAULT_TIMEOUT_MS = 600000;
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_NEGATIVE_PROMPT =
-  "blurry, low quality, photo, realistic, text, watermark, room background, floor, frame, cropped, duplicate object";
+  "wrong object type, cabinet, shelf, wardrobe, blurry, low quality, realistic photo, room scene, background, wall, floor, multiple objects, clutter, text, watermark, cropped object, cut off edges, duplicate object";
+const DEFAULT_POSITIVE_PROMPT =
+  "convert the uploaded furniture object into a single isometric pixel-art game sprite, preserve the original object type, preserve the main silhouette and proportions, transparent background, centered asset, clean simple shading, top-left lighting, no room, no floor, no extra objects";
 const WORKFLOW_PLACEHOLDER_CHECKPOINT = "PUT_CHECKPOINT_NAME_HERE";
 const WHITE_BACKGROUND_THRESHOLD = 242;
 const CROPPING_PADDING = 2;
@@ -175,11 +177,8 @@ function buildNegativePrompt() {
 
 function buildPositivePrompt(generationPrompt) {
   return [
+    DEFAULT_POSITIVE_PROMPT,
     generationPrompt,
-    "Cozy simulation game asset.",
-    "Transparent background.",
-    "Single isolated object only.",
-    "Preserve the main silhouette from the uploaded reference image.",
   ].join(" ");
 }
 
@@ -621,6 +620,10 @@ function findNodeIdByMatcher(workflow, matcher) {
   return null;
 }
 
+function findNodeIdByClassType(workflow, classType) {
+  return findNodeIdByMatcher(workflow, (node) => node?.class_type === classType);
+}
+
 function findTextNodeIds(workflow) {
   const clipNodes = Object.entries(workflow).filter(([, node]) => node?.class_type === "CLIPTextEncode");
   const positiveNodeId =
@@ -885,27 +888,43 @@ function prepareWorkflow(workflow, workflowPath, generationPrompt, options = {})
   const checkpointApplied = applyCheckpoint(workflow, checkpointName);
   const samplerDefaultsApplied = applySamplerDefaults(workflow);
   const latentDefaultsApplied = applyLatentImageDefaults(workflow);
-  const checkpointNodeId = findNodeIdByMatcher(
-    workflow,
-    (node) => node?.class_type === "CheckpointLoaderSimple"
-  );
+  const checkpointNodeId = findNodeIdByClassType(workflow, "CheckpointLoaderSimple");
+  const kSamplerNodeId = findNodeIdByClassType(workflow, "KSampler");
   const nodeCount = Object.keys(workflow).length;
 
   applySeed(workflow, randomSeed());
   applySavePrefix(workflow, `furniture-${Date.now()}`);
 
   let loadImageNodeId = null;
+  let vaeEncodeNodeId = null;
 
   if (workflowMode === "img2img") {
     loadImageNodeId = applyLoadImage(workflow, options.uploadedImage);
+    vaeEncodeNodeId = findNodeIdByClassType(workflow, "VAEEncode");
     const denoiseApplied = applyDenoise(workflow, getDenoiseValue());
 
     console.info("[comfyui] detected LoadImage node id", {
       loadImageNodeId,
+      vaeEncodeNodeId,
+      kSamplerNodeId,
     });
 
     if (!loadImageNodeId) {
       throw createComfyUiError("ComfyUI img2img workflow is missing a LoadImage node.", {
+        workflowMode,
+        workflowPath,
+      });
+    }
+
+    if (!vaeEncodeNodeId) {
+      throw createComfyUiError("ComfyUI img2img workflow is missing a VAEEncode node.", {
+        workflowMode,
+        workflowPath,
+      });
+    }
+
+    if (!kSamplerNodeId) {
+      throw createComfyUiError("ComfyUI img2img workflow is missing a KSampler node.", {
         workflowMode,
         workflowPath,
       });
@@ -927,15 +946,18 @@ function prepareWorkflow(workflow, workflowPath, generationPrompt, options = {})
     positiveNodeId,
     negativeNodeId,
     checkpointNodeId,
+    kSamplerNodeId,
     loadImageNodeId,
+    vaeEncodeNodeId,
     nodeCount,
     samplerDefaultsApplied,
     latentDefaultsApplied,
     steps: getStepsValue(),
     cfg: getCfgValue(),
-    width: getWidthValue(),
-    height: getHeightValue(),
-    batchSize: getBatchSizeValue(),
+    width: workflowMode === "img2img" ? null : getWidthValue(),
+    height: workflowMode === "img2img" ? null : getHeightValue(),
+    batchSize: workflowMode === "img2img" ? 1 : getBatchSizeValue(),
+    sourceDimensionsDrivenByUpload: workflowMode === "img2img",
     denoise: workflowMode === "img2img" ? getDenoiseValue() : null,
   });
 

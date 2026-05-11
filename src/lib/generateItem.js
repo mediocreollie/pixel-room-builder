@@ -95,12 +95,13 @@ export async function createFakeGeneratedItem({ file, itemId, itemNumber }) {
   };
 }
 
-export async function requestGeneratedItem({ file, itemId, itemNumber }) {
+export async function requestGeneratedItem({ file, itemId, itemNumber, objectTypeHint = "" }) {
   console.info("[generation] create item clicked", {
     realGenerationEnabled: REAL_GENERATION_ENABLED,
     itemId,
     itemNumber,
     fileName: file?.name,
+    objectTypeHint,
   });
 
   const imageDataUrl = await readFileAsDataUrl(file);
@@ -120,6 +121,7 @@ export async function requestGeneratedItem({ file, itemId, itemNumber }) {
       imageDataUrl,
       itemId,
       itemNumber,
+      objectTypeHint,
     }),
   });
 
